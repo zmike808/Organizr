@@ -96,7 +96,9 @@ function joinPlex(){
     }
     if(email.val() !== '' && username.val() !== '' && password.val() !== ''){
         organizrAPI('POST','api/?v1/plex/join',{username:username.val(), email:email.val(), password:password.val()}).success(function(data) {
-    		var response = JSON.parse(data);
+    		console.log(data);
+            console.log(response);
+            var response = JSON.parse(data);
             if(response.data){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
                 $('.invite-step-3-plex-yes').toggleClass('hidden');
