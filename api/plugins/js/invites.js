@@ -97,14 +97,41 @@ function joinPlex(){
     if(email.val() !== '' && username.val() !== '' && password.val() !== ''){
         organizrAPI('POST','api/?v1/plex/join',{username:username.val(), email:email.val(), password:password.val()}).success(function(data) {
     		var response = JSON.parse(data);
-            if(response.data === true){
+            if(response.data){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
                 $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
                 $('#inviteUsernameInvite').val(username.val());
-                hasPlexUsername();
+                var plexToken = response.data.user.authToken;
+                var code = $('#inviteCodeInput').val().toUpperCase();
+                var username = $('#inviteUsernameInvite');
+
+                var post = {
+                    plugin:'Invites/codes',
+                    action:'use',
+                    code:code,
+                    usedby:username.val(),
+                    plexToken:plexToken
+                };
+                ajaxloader(".content-wrap","in");
+                organizrAPI('POST','api/?v1/plugin',post).success(function(data) {
+                    var response = JSON.parse(data);
+                    if(response.data === true){
+                        $('.invite-step-3-plex-yes').toggleClass('hidden');
+                        $('.invite-step-4-plex-accept').toggleClass('hidden');
+                        if(local('get', 'invite')){
+                            local('remove', 'invite');
+                        }
+                    }else{
+                        message('Invite Error',' Code Incorrect',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+                    }
+                    ajaxloader();;
+                }).fail(function(xhr) {
+                    console.error("Organizr Function: API Connection Failed");
+                    ajaxloader();
+                });
             }else{
-                message('Invite Error',' '+response.data,activeInfo.settings.notifications.position,'#FFF','warning','5000');
+                message('Invite Error'); //,' '+response.data,activeInfo.settings.notifications.position,'#FFF','warning','5000');
             }
     	}).fail(function(xhr) {
     		console.error("Organizr Function: API Connection Failed");

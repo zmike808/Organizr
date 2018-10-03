@@ -1754,7 +1754,9 @@ function plexJoin($username, $email, $password)
 			if ($passwordError) {
 				$errorMessage .= "[Password Error: " . $passwordError . "]";
 			}
+                                return false;
 		}
+                                return $json;
 		return (!empty($success) && empty($errors) ? true : $errorMessage);
 	} catch (Requests_Exception $e) {
 		writeLog('error', 'Plex.TV Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');

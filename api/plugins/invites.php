@@ -26,6 +26,7 @@ function inviteCodes($array)
 	$username = isset($array['data']['username']) ? $array['data']['username'] : null;
 	$email = isset($array['data']['email']) ? $array['data']['email'] : null;
 	$id = isset($array['data']['id']) ? $array['data']['id'] : null;
+    $plexToken = isset($array['data']['plexToken']) ? $array['data']['plexToken'] : null;
 	$now = date("Y-m-d H:i:s");
 	$currentIP = userIP();
 	switch ($action) {
@@ -57,7 +58,9 @@ function inviteCodes($array)
 					], '
 	                	WHERE code=?', $code);
 					writeLog('success', 'Invite Management Function -  Invite Used [' . $code . ']', 'SYSTEM');
-					return inviteAction($usedBy, 'share', $GLOBALS['INVITES-type-include']);
+                    if(inviteAction($usedBy, 'share', $GLOBALS['INVITES-type-include'])) {
+                       return autoAcceptInvition($plexToken);
+                    }
 				} else {
 					return false;
 				}
@@ -234,7 +237,25 @@ function invitesGetSettings()
 		)
 	);
 }
+function autoAcceptInvition($plexToken) {
+   /** https://plex.tv/api/invites/requests/<request-id>?friend=0&server=1&home=0`
+            https://plex.tv/api/invites/requests
+            */
 
+    $headers = array(
+                    "Accept" => "application/json",
+                    "Content-Type" => "application/json",
+                    "X-Plex-Token" => $plexToken
+                );
+    $inviteList = "https://plex.tv/api/invites/requests"
+    $response = Requests::get($inviteList, $headers)
+    $inviteXML = simplexml_load_string($response->body);
+    $inviteID = $inviteXML->Invite[0]->id;
+    $acceptURL = "https://plex.tv/api/invites/requests/".$inviteID."?friend=0&server=1&home=0"
+    $response = Requests::get($acceptURL, $headers);
+    return $response->success;
+
+}
 function inviteAction($username, $action = null, $type = null)
 {
 	if ($action == null) {
