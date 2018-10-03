@@ -103,7 +103,6 @@ function joinPlex(){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
                 $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
-                $('#inviteUsernameInvite').val(username.val());
                 var plexToken = response.data.user.authToken;
                 var code = $('#inviteCodeInput').val().toUpperCase();
                 var username = response.data.user.username;
