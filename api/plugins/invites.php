@@ -256,7 +256,7 @@ function autoAcceptInvition($plexToken) {
     $inviteXML = simplexml_load_string($response->body);
     $inviteID = $inviteXML->Invite[0]->id;
     $acceptURL = "https://plex.tv/api/invites/requests/".$inviteID."?friend=0&server=1&home=0";
-    $response = Requests::get($acceptURL, $headers);
+    $response = Requests::put($acceptURL, $headers);
     return $response;
 
 }
