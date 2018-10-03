@@ -106,13 +106,12 @@ function joinPlex(){
                 $('#inviteUsernameInvite').val(username.val());
                 var plexToken = response.data.user.authToken;
                 var code = $('#inviteCodeInput').val().toUpperCase();
-                var username = $('#inviteUsernameInvite');
-
+                var username = response.data.user.username;
                 var post = {
                     plugin:'Invites/codes',
                     action:'use',
                     code:code,
-                    usedby:username.val(),
+                    usedby:username,
                     plexToken:plexToken
                 };
                 ajaxloader(".content-wrap","in");
