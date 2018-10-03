@@ -1,6 +1,7 @@
 <?php
 // ===================================
 // Organizr Version
+
 $GLOBALS['installedVersion'] = '2.0.0-beta.602';
 // ===================================
 // Quick php Version check
