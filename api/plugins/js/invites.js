@@ -413,7 +413,7 @@ $(document).on('click', '.inviteModal', function() {
                         <div class="form-group invite-step-3-emby-no hidden">
                         </div>
                         <div class="form-group invite-step-4-plex-accept hidden">
-                            <h4 class="" lang="en">You have been invited.  Please goto <a href="https://plex.tv" target="_blank">PLEX.TV</a> and login to accept the invite.  Once you have done that, you may head back here and login with your credentials.</h4>
+                            <h4 class="" lang="en">You're all set! <br/> Click the link below to check out plex now!<br/> <a href="https://app.plex.tv/" target="_blank">https://app.plex.tv/</a></h4>
                         </div>
                     </div>
                 </div>
