@@ -59,7 +59,11 @@ function inviteCodes($array)
 	                	WHERE code=?', $code);
 					writeLog('success', 'Invite Management Function -  Invite Used [' . $code . ']', 'SYSTEM');
                     if(inviteAction($usedBy, 'share', $GLOBALS['INVITES-type-include'])) {
-                       return autoAcceptInvition($plexToken);
+                     if($plexToken) {
+                       $results = autoAcceptInvition($plexToken);
+                       writeLog('success', $results->body, 'SYSTEM');
+                   }
+                       return true;
                     }
 				} else {
 					return false;
@@ -247,13 +251,13 @@ function autoAcceptInvition($plexToken) {
                     "Content-Type" => "application/json",
                     "X-Plex-Token" => $plexToken
                 );
-    $inviteList = "https://plex.tv/api/invites/requests"
-    $response = Requests::get($inviteList, $headers)
+    $inviteList = "https://plex.tv/api/invites/requests";
+    $response = Requests::get($inviteList, $headers);
     $inviteXML = simplexml_load_string($response->body);
     $inviteID = $inviteXML->Invite[0]->id;
-    $acceptURL = "https://plex.tv/api/invites/requests/".$inviteID."?friend=0&server=1&home=0"
+    $acceptURL = "https://plex.tv/api/invites/requests/".$inviteID."?friend=0&server=1&home=0";
     $response = Requests::get($acceptURL, $headers);
-    return $response->success;
+    return $response;
 
 }
 function inviteAction($username, $action = null, $type = null)
