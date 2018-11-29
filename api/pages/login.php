@@ -1,12 +1,22 @@
 <?php
 $pageLogin = '
 <script>
+if(activeInfo.settings.login.rememberMe){
+	$(\'#checkbox-login\').prop(\'checked\',true);
+}
 </script>
 <section id="wrapper" class="login-register">
   <div class="login-box login-sidebar animated slideInRight">
     <div class="white-box">
       <form class="form-horizontal" id="loginform" onsubmit="return false;">
         <a href="javascript:void(0)" class="text-center db visible-xs" id="login-logo">' . logoOrText() . '</a>
+        <div id="oAuth-div" class="form-group hidden">
+          <div class="col-xs-12">
+            <div class="panel panel-success animated tada">
+                <div class="panel-heading">oAuth Successful - Please wait...</div>
+            </div>
+          </div>
+        </div>
 		<div id="tfa-div" class="form-group hidden">
           <div class="col-xs-12">
             <div class="panel panel-warning animated tada">
@@ -26,30 +36,32 @@ $pageLogin = '
         </div>
         <div class="form-group m-t-40">
           <div class="col-xs-12">
-            <input class="form-control" name="username" type="text" required="" placeholder="Username" autofocus>
+            <input id="login-username-Input" class="form-control" name="username" type="text" required="" placeholder="Username" lang="en" autofocus>
           </div>
         </div>
         <div class="form-group">
           <div class="col-xs-12">
-            <input class="form-control" name="password" type="password" required="" placeholder="Password" lang="en">
+            <input id="login-password-Input" class="form-control" name="password" type="password" required="" placeholder="Password" lang="en">
           </div>
         </div>
         <div class="form-group">
           <div class="col-md-12">
             <div class="checkbox checkbox-primary pull-left p-t-0 remember-me">
-              <input id="checkbox-login" name="remember" type="checkbox" checked>
-              <label for="checkbox-signup" lang="en">Remember Me</label>
+              <input id="checkbox-login" name="remember" type="checkbox">
+              <label for="checkbox-login" lang="en">Remember Me</label>
             </div>
         	</div>
         </div>
-        <div class="form-group text-center m-t-20">
+        <div class="form-group text-center m-t-20 m-b-0">
           <div class="col-xs-12">
             <button class="btn btn-info btn-lg btn-block text-uppercase waves-effect waves-light login-button" type="submit" lang="en">Login</button>
           </div>
         </div>
-
+		' . showoAuth() . '
         <div class="form-group m-b-0">
           <div class="col-sm-12 text-center">
+          	<input id="oAuth-Input" class="form-control" name="oAuth" type="hidden">
+            <input id="oAuthType-Input" class="form-control" name="oAuthType" type="hidden">
             ' . showLogin() . '
           </div>
         </div>

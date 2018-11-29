@@ -116,6 +116,8 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                             </li>
                             <li onclick="changeSettingsMenu(\'Settings::User Management::Manage Groups\');loadSettingsPage(\'api/?v1/settings/user/manage/groups\',\'#settings-user-manage-groups\',\'Group Management\');" role="presentation" class=""><a href="#settings-user-manage-groups" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-briefcase"></i></span><span class="hidden-xs" lang="en">Groups</span></a>
                             </li>
+                            <li onclick="changeSettingsMenu(\'Settings::User Management::Import Users\');" role="presentation" class=""><a href="#settings-user-import-users" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-briefcase"></i></span><span class="hidden-xs" lang="en">Import</span></a>
+                            </li>
                         </ul>
                         <!-- Tab panes -->
                         <div class="tab-content">
@@ -125,6 +127,10 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                             </div>
                             <div role="tabpanel" class="tab-pane fade" id="settings-user-manage-groups">
                                 <h2 lang="en">Loading...</h2>
+                                <div class="clearfix"></div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="settings-user-import-users">
+                                ' . importUserButtons() . '
                                 <div class="clearfix"></div>
                             </div>
                         </div>
@@ -195,7 +201,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
     										</ul>
     									</div>
     									<a href="https://poeditor.com/join/project/T6l68hksTE" target="_blank">
-	                                        <div class="well bg-org">
+	                                        <div class="white-box bg-org">
 	                                            <h4 lang="en">Want to help translate?</h4>
 	                                            <p lang="en">Head on over to POEditor and help us translate Organizr into your language</p>
 	                                        </div>

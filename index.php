@@ -118,14 +118,99 @@
         <div class="internal-listing p-0 hidden"></div>
         <div class="iFrame-listing p-0 hidden"></div>
     </div>
+    <!-- debug modal content -->
+    <div class="modal fade debugModal" tabindex="-1" role="dialog" aria-labelledby="debugModal"
+         aria-hidden="true" style="display: none;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h4 class="modal-title" id="debugModal" lang="en">Organizr Debug Area</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="white-box m-0">
+                        <div class="steamline">
+                            <div class="sl-item">
+                                <div class="sl-left bg-success"><i class="mdi mdi-code-tags"></i></div>
+                                <div class="sl-right">
+                                    <div class="form-group m-b-0">
+                                        <div id="" class="input-group">
+                                            <input id="debug-input" lang="en" placeholder="Input Command" type="text"
+                                                   class="form-control inline-focus">
+                                            <div class="input-group-btn">
+                                                <button type="button"
+                                                        class="btn waves-effect waves-light btn-info dropdown-toggle"
+                                                        data-toggle="dropdown" aria-expanded="false"><span lang="en">Commands</span>
+                                                    <span class="caret"></span></button>
+                                                <ul class="dropdown-menu dropdown-menu-right">
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.sso');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">SSO</a></li>
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.sso.ombi');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">Ombi SSO</a></li>
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.sso.plex');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">Plex SSO</a></li>
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.sso.tautulli');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">Tautulli SSO</a></li>
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.sso.misc');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">Misc SSO</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="clearfix"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="debugResultsBox" class="sl-item hidden">
+                                <div class="sl-left bg-info"><i class="mdi mdi-receipt"></i></div>
+                                <div class="sl-right">
+                                    <div><span lang="en">Results For cmd:</span>&nbsp;<span class="cmdName"></span>
+                                    </div>
+                                    <div id="debugResults" class="desc"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger waves-effect text-left" data-dismiss="modal">Close
+                    </button>
+                </div>
+            </div>
+            <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
+    <!-- help modal content -->
+    <div class="modal fade help-modal-lg" tabindex="-1" role="dialog" aria-labelledby="help-modal-lg" aria-hidden="true"
+         style="display: none;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h4 class="modal-title" id="help-modal-title">Large modal</h4></div>
+                <div class="modal-body" id="help-modal-body"></div>
+            </div>
+            <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
     <!-- ============================================================== -->
     <!-- End Page Content -->
     <!-- ============================================================== -->
     <a href="#" id="scroll" style="display: none;"><span></span></a>
+    <button id="internal-clipboard" class="hidden"></button>
 </div>
 <!-- /#wrapper -->
 <!-- jQuery -->
 <!--<script src="plugins/bower_components/jquery/dist/jquery.min.js"></script>-->
+<?php echo "<script>languageList = " . languagePacks(true) . ";\n</script>"; ?>
 <script src="js/jquery-2.2.4.min.js"></script>
 <script src="bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="plugins/bower_components/sidebar-nav/dist/sidebar-nav.js"></script>
@@ -170,6 +255,7 @@
 <script src="plugins/bower_components/mousetrap/mousetrap.min.js"></script>
 <script src="plugins/bower_components/bootstrap-treeview-master/dist/bootstrap-treeview.min.js"></script>
 <script src="js/jquery.mousewheel.min.js"></script>
+<script src="js/ua-parser.min.js"></script>
 <script src="js/plyr.js"></script>
 <script src="js/simplebar.js"></script>
 <script src="https://apis.google.com/js/client.js?onload=googleApiClientReady"></script>

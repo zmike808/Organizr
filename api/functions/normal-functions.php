@@ -168,6 +168,28 @@ function randString($length = 10, $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ
 	return $tmp;
 }
 
+function isEncrypted($password)
+{
+	switch (strlen($password)) {
+		case '24':
+			return (strpos($password, '==') !== false) ? true : false;
+			break;
+		case '44':
+			return (substr($password, -1, 1) == '=') ? true : false;
+			break;
+		case '64':
+			return true;
+		case '88':
+			return (strpos($password, '==') !== false) ? true : false;
+			break;
+		case '108':
+			return (substr($password, -1, 1) == '=') ? true : false;
+			break;
+		default:
+			return false;
+	}
+}
+
 function encrypt($password, $key = null)
 {
 	$key = (isset($GLOBALS['organizrHash'])) ? $GLOBALS['organizrHash'] : $key;
@@ -516,4 +538,86 @@ function file_get_contents_curl($url)
 function getExtension($string)
 {
 	return preg_replace("#(.+)?\.(\w+)(\?.+)?#", "$2", $string);
+}
+
+function safe_json_encode($value, $options = 0, $depth = 512)
+{
+	$encoded = json_encode($value, $options, $depth);
+	if ($encoded === false && $value && json_last_error() == JSON_ERROR_UTF8) {
+		$encoded = json_encode(utf8ize($value), $options, $depth);
+	}
+	return $encoded;
+}
+
+function utf8ize($mixed)
+{
+	if (is_array($mixed)) {
+		foreach ($mixed as $key => $value) {
+			$mixed[$key] = utf8ize($value);
+		}
+	} elseif (is_string($mixed)) {
+		return mb_convert_encoding($mixed, "UTF-8", "UTF-8");
+	}
+	return $mixed;
+}
+
+function gen_uuid()
+{
+	return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+		// 32 bits for "time_low"
+		mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+		// 16 bits for "time_mid"
+		mt_rand(0, 0xffff),
+		// 16 bits for "time_hi_and_version",
+		// four most significant bits holds version number 4
+		mt_rand(0, 0x0fff) | 0x4000,
+		// 16 bits, 8 bits for "clk_seq_hi_res",
+		// 8 bits for "clk_seq_low",
+		// two most significant bits holds zero and one for variant DCE1.1
+		mt_rand(0, 0x3fff) | 0x8000,
+		// 48 bits for "node"
+		mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+	);
+}
+
+function dbExtension($string)
+{
+	return (substr($string, -3) == '.db') ? $string : $string . '.db';
+}
+
+function localIPRanges()
+{
+	return array(
+		array(
+			'from' => '10.0.0.0',
+			'to' => '10.255.255.255'
+		),
+		array(
+			'from' => '172.16.0.0',
+			'to' => '172.31.255.255'
+		),
+		array(
+			'from' => '192.168.0.0',
+			'to' => '192.168.255.255'
+		),
+		array(
+			'from' => '127.0.0.1',
+			'to' => '127.255.255.255'
+		),
+	);
+}
+
+function isLocal($checkIP = null)
+{
+	$isLocal = false;
+	$userIP = ($checkIP) ? ip2long($checkIP) : ip2long(userIP());
+	$range = localIPRanges();
+	foreach ($range as $ip) {
+		$low = ip2long($ip['from']);
+		$high = ip2long($ip['to']);
+		if ($userIP <= $high && $low <= $userIP) {
+			$isLocal = true;
+		}
+	}
+	return $isLocal;
 }

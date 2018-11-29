@@ -17,6 +17,8 @@ function homepageOrder()
 		"homepageOrdertransmission" => $GLOBALS['homepageOrdertransmission'],
 		"homepageOrderqBittorrent" => $GLOBALS['homepageOrderqBittorrent'],
 		"homepageOrderdeluge" => $GLOBALS['homepageOrderdeluge'],
+		"homepageOrderrTorrent" => $GLOBALS['homepageOrderrTorrent'],
+		"homepageOrderdownloader" => $GLOBALS['homepageOrderdownloader'],
 	);
 	asort($homepageOrder);
 	return $homepageOrder;
@@ -51,63 +53,147 @@ function buildHomepageItem($homepageItem)
 		case 'homepageOrdernoticeguest':
 			break;
 		case 'homepageOrderqBittorrent':
-			if ($GLOBALS['homepageqBittorrentEnabled']) {
-				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-				$item .= '
-                <script>
-                // homepageOrderqBittorrent
-                homepageDownloader("qBittorrent", "' . $GLOBALS['homepageDownloadRefresh'] . '");
-                // End homepageOrderqBittorrent
-                </script>
-                ';
+			if ($GLOBALS['homepageqBittorrentEnabled'] && qualifyRequest($GLOBALS['homepageqBittorrentAuth'])) {
+				if ($GLOBALS['qBittorrentCombine']) {
+					$item .= '
+	                <script>
+	                // homepageOrderqBittorrent
+	                buildDownloaderCombined(\'qBittorrent\');
+	                homepageDownloader("qBittorrent", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+	                // End homepageOrderqBittorrent
+	                </script>
+	                ';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+	                <script>
+	                // homepageOrderqBittorrent
+	                $("#' . $homepageItem . '").html(buildDownloader("qBittorrent"));
+	                homepageDownloader("qBittorrent", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+	                // End homepageOrderqBittorrent
+	                </script>
+	                ';
+				}
+			}
+			break;
+		case 'homepageOrderrTorrent':
+			if ($GLOBALS['homepagerTorrentEnabled'] && qualifyRequest($GLOBALS['homepagerTorrentAuth'])) {
+				if ($GLOBALS['rTorrentCombine']) {
+					$item .= '
+	                <script>
+	                // homepageOrderrTorrent
+	                buildDownloaderCombined(\'rTorrent\');
+	                homepageDownloader("rTorrent", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+	                // End homepageOrderrTorrent
+	                </script>
+	                ';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+	                <script>
+	                // homepageOrderrTorrent
+	                $("#' . $homepageItem . '").html(buildDownloader("rTorrent"));
+	                homepageDownloader("rTorrent", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+	                // End homepageOrderrTorrent
+	                </script>
+	                ';
+				}
 			}
 			break;
 		case 'homepageOrderdeluge':
-			if ($GLOBALS['homepageDelugeEnabled']) {
-				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-				$item .= '
-				<script>
-				// Deluge
-				homepageDownloader("deluge", "' . $GLOBALS['homepageDownloadRefresh'] . '");
-				// End Deluge
-				</script>
-				';
+			if ($GLOBALS['homepageDelugeEnabled'] && qualifyRequest($GLOBALS['homepageDelugeAuth'])) {
+				if ($GLOBALS['delugeCombine']) {
+					$item .= '
+					<script>
+					// Deluge
+					buildDownloaderCombined(\'deluge\');
+					homepageDownloader("deluge", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End Deluge
+					</script>
+					';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+					<script>
+					// Deluge
+					$("#' . $homepageItem . '").html(buildDownloader("deluge"));
+					homepageDownloader("deluge", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End Deluge
+					</script>
+					';
+				}
 			}
 			break;
 		case 'homepageOrdertransmission':
-			if ($GLOBALS['homepageTransmissionEnabled']) {
-				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-				$item .= '
-				<script>
-				// Transmission
-				homepageDownloader("transmission", "' . $GLOBALS['homepageDownloadRefresh'] . '");
-				// End Transmission
-				</script>
-				';
+			if ($GLOBALS['homepageTransmissionEnabled'] && qualifyRequest($GLOBALS['homepageTransmissionAuth'])) {
+				if ($GLOBALS['transmissionCombine']) {
+					$item .= '
+					<script>
+					// Transmission
+					buildDownloaderCombined(\'transmission\');
+					homepageDownloader("transmission", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End Transmission
+					</script>
+					';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+					<script>
+					// Transmission
+					$("#' . $homepageItem . '").html(buildDownloader("transmission"));
+					homepageDownloader("transmission", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End Transmission
+					</script>
+					';
+				}
 			}
 			break;
 		case 'homepageOrdernzbget':
-			if ($GLOBALS['homepageNzbgetEnabled']) {
-				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-				$item .= '
-				<script>
-				// NZBGet
-				homepageDownloader("nzbget", "' . $GLOBALS['homepageDownloadRefresh'] . '");
-				// End NZBGet
-				</script>
-				';
+			if ($GLOBALS['homepageNzbgetEnabled'] && qualifyRequest($GLOBALS['homepageNzbgetAuth'])) {
+				if ($GLOBALS['nzbgetCombine']) {
+					$item .= '
+					<script>
+					// NZBGet
+					buildDownloaderCombined(\'nzbget\');
+					homepageDownloader("nzbget", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End NZBGet
+					</script>
+					';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+					<script>
+					// NZBGet
+					$("#' . $homepageItem . '").html(buildDownloader("nzbget"));
+					homepageDownloader("nzbget", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End NZBGet
+					</script>
+					';
+				}
 			}
 			break;
 		case 'homepageOrdersabnzbd':
-			if ($GLOBALS['homepageSabnzbdEnabled']) {
-				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-				$item .= '
-				<script>
-				// SabNZBd
-				homepageDownloader("sabnzbd", "' . $GLOBALS['homepageDownloadRefresh'] . '");
-				// End SabNZBd
-				</script>
-				';
+			if ($GLOBALS['homepageSabnzbdEnabled'] && qualifyRequest($GLOBALS['homepageSabnzbdAuth'])) {
+				if ($GLOBALS['sabnzbdCombine']) {
+					$item .= '
+					<script>
+					// SabNZBd
+					buildDownloaderCombined(\'sabnzbd\');
+					homepageDownloader("sabnzbd", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End SabNZBd
+					</script>
+					';
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
+					<script>
+					// SabNZBd
+					$("#' . $homepageItem . '").html(buildDownloader("sabnzbd"));
+					homepageDownloader("sabnzbd", "' . $GLOBALS['homepageDownloadRefresh'] . '");
+					// End SabNZBd
+					</script>
+					';
+				}
 			}
 			break;
 		case 'homepageOrderplexnowplaying':
@@ -204,6 +290,20 @@ function buildHomepageItem($homepageItem)
 function getHomepageList()
 {
 	$groups = groupSelect();
+	$ombiTvOptions = array(
+		array(
+			'name' => 'All Seasons',
+			'value' => 'all'
+		),
+		array(
+			'name' => 'First Season Only',
+			'value' => 'first'
+		),
+		array(
+			'name' => 'Last Season Only',
+			'value' => 'last'
+		),
+	);
 	$mediaServers = array(
 		array(
 			'name' => 'N/A',
@@ -326,6 +426,56 @@ function getHomepageList()
 			'value' => 'H:mm'
 		)
 	);
+	$rTorrentSortOptions = array(
+		array(
+			'name' => 'Date Desc',
+			'value' => 'dated'
+		),
+		array(
+			'name' => 'Date Asc',
+			'value' => 'datea'
+		),
+		array(
+			'name' => 'Hash Desc',
+			'value' => 'hashd'
+		),
+		array(
+			'name' => 'Hash Asc',
+			'value' => 'hasha'
+		),
+		array(
+			'name' => 'Name Desc',
+			'value' => 'named'
+		),
+		array(
+			'name' => 'Name Asc',
+			'value' => 'namea'
+		),
+		array(
+			'name' => 'Size Desc',
+			'value' => 'sized'
+		),
+		array(
+			'name' => 'Size Asc',
+			'value' => 'sizea'
+		),
+		array(
+			'name' => 'Label Desc',
+			'value' => 'labeld'
+		),
+		array(
+			'name' => 'Label Asc',
+			'value' => 'labela'
+		),
+		array(
+			'name' => 'Status Desc',
+			'value' => 'statusd'
+		),
+		array(
+			'name' => 'Status Asc',
+			'value' => 'statusa'
+		),
+	);
 	$qBittorrentSortOptions = array(
 		array(
 			'name' => 'Hash',
@@ -388,6 +538,7 @@ function getHomepageList()
 			'value' => 'category'
 		)
 	);
+	$xmlStatus = (extension_loaded('xmlrpc')) ? 'Installed' : 'Not Installed';
 	return array(array(
 		'name' => 'Calendar',
 		'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
@@ -852,7 +1003,13 @@ function getHomepageList()
 						'label' => 'Refresh Seconds',
 						'value' => $GLOBALS['homepageDownloadRefresh'],
 						'options' => optionTime()
-					)
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'sabnzbdCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['sabnzbdCombine']
+					),
 				),
 				'Test Connection' => array(
 					array(
@@ -919,7 +1076,13 @@ function getHomepageList()
 						'label' => 'Refresh Seconds',
 						'value' => $GLOBALS['homepageDownloadRefresh'],
 						'options' => optionTime()
-					)
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'nzbgetCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['nzbgetCombine']
+					),
 				),
 				'Test Connection' => array(
 					array(
@@ -997,7 +1160,13 @@ function getHomepageList()
 						'label' => 'Refresh Seconds',
 						'value' => $GLOBALS['homepageDownloadRefresh'],
 						'options' => optionTime()
-					)
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'transmissionCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['transmissionCombine']
+					),
 				)
 			)
 		),
@@ -1073,7 +1242,127 @@ function getHomepageList()
 						'label' => 'Refresh Seconds',
 						'value' => $GLOBALS['homepageDownloadRefresh'],
 						'options' => optionTime()
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'qBittorrentCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['qBittorrentCombine']
+					),
+				)
+			)
+		),
+		array(
+			'name' => 'rTorrent',
+			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
+			'image' => 'plugins/images/tabs/rTorrent.png',
+			'category' => 'Downloader',
+			'settings' => array(
+				'FYI' => array(
+					array(
+						'type' => 'html',
+						'label' => '',
+						'override' => 12,
+						'html' => '
+						<div class="row">
+						    <div class="col-lg-12">
+						        <div class="panel panel-info">
+						            <div class="panel-heading">
+						                <span lang="en">This module requires XMLRPC</span>
+						            </div>
+						            <div class="panel-wrapper collapse in" aria-expanded="true">
+						                <div class="panel-body">
+						                    <span lang="en">Status: [ <b>' . $xmlStatus . '</b> ]</span>
+						                </div>
+						            </div>
+						        </div>
+						    </div>
+						</div>
+						'
 					)
+				),
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepagerTorrentEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepagerTorrentEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepagerTorrentAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepagerTorrentAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'rTorrentURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['rTorrentURL'],
+						'placeholder' => 'http(s)://hostname:port'
+					),
+					array(
+						'type' => 'input',
+						'name' => 'rTorrentUsername',
+						'label' => 'Username',
+						'value' => $GLOBALS['rTorrentUsername']
+					),
+					array(
+						'type' => 'password',
+						'name' => 'rTorrentPassword',
+						'label' => 'Password',
+						'value' => $GLOBALS['rTorrentPassword']
+					)
+				),
+				'Misc Options' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'rTorrentHideSeeding',
+						'label' => 'Hide Seeding',
+						'value' => $GLOBALS['rTorrentHideSeeding']
+					), array(
+						'type' => 'switch',
+						'name' => 'rTorrentHideCompleted',
+						'label' => 'Hide Completed',
+						'value' => $GLOBALS['rTorrentHideCompleted']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'rTorrentSortOrder',
+						'label' => 'Order',
+						'value' => $GLOBALS['rTorrentSortOrder'],
+						'options' => $rTorrentSortOptions
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageDownloadRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageDownloadRefresh'],
+						'options' => optionTime()
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'rTorrentCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['rTorrentCombine']
+					),
+				),
+				'Test Connection' => array(
+					array(
+						'type' => 'blank',
+						'label' => 'Please Save before Testing'
+					),
+					array(
+						'type' => 'button',
+						'label' => '',
+						'icon' => 'fa fa-flask',
+						'class' => 'pull-right',
+						'text' => 'Test Connection',
+						'attr' => 'onclick="testAPIConnection(\'rtorrent\')"'
+					),
 				)
 			)
 		),
@@ -1093,7 +1382,7 @@ function getHomepageList()
                             <div class="panel-wrapper collapse in" aria-expanded="true">
                                 <div class="panel-body">
 									<ul class="list-icons">
-                                        <li><i class="fa fa-chevron-right text-danger"></i> <a href="https://github.com/idlesign/deluge-webapi/raw/master/dist/WebAPI-0.2.1-py2.7.egg" target="_blank">Download Plugin</a></li>
+                                        <li><i class="fa fa-chevron-right text-danger"></i> <a href="https://github.com/idlesign/deluge-webapi/tree/master/dist" target="_blank">Download Plugin</a></li>
                                         <li><i class="fa fa-chevron-right text-danger"></i> Open Deluge Web UI, go to "Preferences -> Plugins -> Install plugin" and choose egg file.</li>
                                         <li><i class="fa fa-chevron-right text-danger"></i> Activate WebAPI plugin </li>
                                     </ul>
@@ -1151,7 +1440,13 @@ function getHomepageList()
 						'label' => 'Refresh Seconds',
 						'value' => $GLOBALS['homepageDownloadRefresh'],
 						'options' => optionTime()
-					)
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'delugeCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['delugeCombine']
+					),
 				),
 				'Test Connection' => array(
 					array(
@@ -1679,6 +1974,13 @@ function getHomepageList()
 						'options' => $groups
 					),
 					array(
+						'type' => 'select',
+						'name' => 'ombiTvDefault',
+						'label' => 'TV Show Default Request',
+						'value' => $GLOBALS['ombiTvDefault'],
+						'options' => $ombiTvOptions
+					),
+					array(
 						'type' => 'switch',
 						'name' => 'ombiLimitUser',
 						'label' => 'Limit to User',
@@ -1829,6 +2131,13 @@ function buildHomepageSettings()
 					$class .= ' faded';
 				}
 				break;
+			case 'homepageOrderrTorrent':
+				$class = 'bg-qbit';
+				$image = 'plugins/images/tabs/rTorrent.png';
+				if (!$GLOBALS['homepagerTorrentEnabled']) {
+					$class .= ' faded';
+				}
+				break;
 			case 'homepageOrderplexnowplaying':
 			case 'homepageOrderplexrecent':
 			case 'homepageOrderplexplaylist':
@@ -1860,6 +2169,13 @@ function buildHomepageSettings()
 					$class .= ' faded';
 				}
 				break;
+			case 'homepageOrderdownloader':
+				$class = 'bg-inverse';
+				$image = 'plugins/images/tabs/downloader.png';
+				if (!$GLOBALS['sabnzbdCombine'] && !$GLOBALS['nzbgetCombine'] && !$GLOBALS['rTorrentCombine'] && !$GLOBALS['delugeCombine'] && !$GLOBALS['transmissionCombine'] && !$GLOBALS['qBittorrentCombine']) {
+					$class .= ' faded';
+				}
+				break;
 			default:
 				$class = 'blue-bg';
 				$image = '';
@@ -1879,4 +2195,19 @@ function buildHomepageSettings()
 	$homepageList .= '</div>';
 	$inputList .= '</form>';
 	return $homepageList . $inputList;
+}
+
+function ombiTVDefault($type)
+{
+	switch ($type) {
+		case 'all':
+			return ($type == $GLOBALS['ombiTvDefault']) ? true : false;
+		case 'first':
+			return ($type == $GLOBALS['ombiTvDefault']) ? true : false;
+		case 'last':
+			return ($type == $GLOBALS['ombiTvDefault']) ? true : false;
+		default:
+			return false;
+	}
+	return false;
 }

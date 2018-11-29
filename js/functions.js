@@ -1,9 +1,10 @@
 // Create language switcher instance
 var lang = new Lang();
+var langStrings = { "token": {} };
 loadLanguageList();
 lang.init({
-	defaultLang: 'en',
-	currentLang: language(moment.locale(navigator.languages[0])),
+	//defaultLang: 'en',
+	currentLang: (getCookie('organizrLanguage')) ? getCookie('organizrLanguage') : language(moment.locale(navigator.languages[0])),
 	cookie: {
 		name: 'organizrLanguage',
 		expiry: 365,
@@ -17,6 +18,82 @@ $(document).ready(function () {
     launch();
 });
 /* NORMAL FUNCTIONS */
+function setLangCookie(lang){
+    Cookies.set('organizrLanguage',lang, {
+        expires: 365,
+        path: '/'
+    });
+}
+function toggleDebug(){
+    $('.debugModal').modal('show')
+}
+function highlightObject(json) {
+    if (typeof json != 'string') {
+        json = JSON.stringify(json, undefined, '\t');
+    }
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        var cls = 'number';
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                cls = 'key';
+            } else {
+                cls = 'string';
+            }
+        } else if (/true|false/.test(match)) {
+            cls = 'boolean';
+        } else if (/null/.test(match)) {
+            cls = 'null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+    });
+}
+function orgDebug(cmd) {
+    var cmd = $('#debug-input').val();
+    var result = '';
+    if (cmd !== '') {
+        result = eval(cmd);
+    }
+    if (result !== '') {
+        $('#debugResultsBox').removeClass('hidden');
+        $('#debugResults').html(formatDebug(result));
+        $('.cmdName').text(cmd);
+    } else {
+
+    }
+}
+function formatDebug(result){
+    var formatted = '';
+    switch (typeof result) {
+        case 'object':
+            formatted = highlightObject(result);
+            break;
+        default:
+            formatted = result;
+
+    }
+    return '<pre class="whitebox bg-org text-success">' + formatted + '</pre>';
+}
+function orgDebugList(cmd){
+    if(cmd !== ''){
+        $('#debug-input').val(cmd);
+        orgDebug();
+    }
+}
+function clipboard(trigger = true, string = null){
+    let clipboard = $('#internal-clipboard');
+    if(string){
+        clipboard.attr('data-clipboard-text',string );
+    }
+    if(trigger){
+        clipboard.click();
+    }
+}
+function getLangStrings(){
+    let strings = JSON.stringify(window.langStrings, null, '\t');
+    clipboard(true,strings);
+    console.log('Copied JSON Strings to clipboard');
+}
 function getHiddenProp(){
     var prefixes = ['webkit','moz','ms','o'];
     // if 'hidden' is natively supported just return it
@@ -35,43 +112,9 @@ function isHidden() {
     return document[prop];
 }
 function loadLanguageList(){
-	var languages = languageList();
-	$.each(languages, function(i,v) {
-		lang.dynamic(i, 'js/langpack/'+i+'.json');
+	$.each(languageList, function(i,v) {
+		lang.dynamic(v.code, 'js/langpack/'+v.filename);
 	});
-	lang.dynamic('strings', 'js/langpack/strings.json');
-}
-function languageList(){
-	return {
-		'en':{
-			'lang':'English',
-			'image':'plugins/images/languages/en.png'
-		},
-		'nb':{
-			'lang':'Bokmål',
-			'image':'plugins/images/languages/nb.png'
-		},
-		'nl':{
-			'lang':'Dutch',
-			'image':'plugins/images/languages/nl.png'
-		},
-		'fr':{
-			'lang':'French',
-			'image':'plugins/images/languages/fr.png'
-		},
-		'de':{
-			'lang':'German',
-			'image':'plugins/images/languages/de.png'
-		},
-		'de-ch':{
-			'lang':'German (Switzerland)',
-			'image':'plugins/images/languages/de-ch.png'
-		},
-		'it':{
-			'lang':'Italian',
-			'image':'plugins/images/languages/it.png'
-		}
-	};
 }
 function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -99,7 +142,7 @@ function timerIncrement() {
         }
     }
     idleTime = idleTime + 1;
-    if(activeInfo.settings.lockout.enabled){
+    if(activeInfo.settings.lockout.enabled && activeInfo.settings.user.oAuthLogin !== true){
         if (idleTime > activeInfo.settings.lockout.timer && $('#lockScreen').length !== 1) {
             if(activeInfo.user.groupID <= activeInfo.settings.lockout.minGroup && activeInfo.user.groupID >= activeInfo.settings.lockout.maxGroup){
                 lock();
@@ -180,17 +223,42 @@ function iconPrefix(source){
 		"fontawesome":"fa fa-",
 		"themify":"ti-",
 		"simpleline":"icon-",
-		"weathericon":"wi wi-",
+        "weathericon":"wi wi-",
+        "alphanumeric":"fa-fw",
 	};
 	if(Array.isArray(tabIcon) && tabIcon.length === 2){
-		if(tabIcon[0] !== 'url'){
+		if(tabIcon[0] !== 'url' && tabIcon[0] !== 'alphanumeric'){
 			return '<i class="'+icons[tabIcon[0]]+tabIcon[1]+' fa-fw"></i>';
-		}else{
+		}else if(tabIcon[0] == 'alphanumeric'){
+            return '<i class="fa-fw">'+tabIcon[1]+'</i>';
+        }else{
 			return '<img class="fa-fw" src="'+tabIcon[1]+'" alt="tabIcon" />';
 		}
 	}else{
 		return '<img class="fa-fw" src="'+source+'" alt="tabIcon" />';
 	}
+}
+function iconPrefixSplash(source){
+    var tabIcon = source.split("::");
+    var icons = {
+        "materialize":"mdi mdi-",
+        "fontawesome":"fa fa-",
+        "themify":"ti-",
+        "simpleline":"icon-",
+        "weathericon":"wi wi-",
+        "alphanumeric":"fa-fw",
+    };
+    if(Array.isArray(tabIcon) && tabIcon.length === 2){
+        if(tabIcon[0] !== 'url' && tabIcon[0] !== 'alphanumeric'){
+            return '<i class="'+icons[tabIcon[0]]+tabIcon[1]+' fa-fw"></i>';
+        }else if(tabIcon[0] == 'alphanumeric'){
+            return '<i class="fa-fw">'+tabIcon[1]+'</i>';
+        }else{
+            return tabIcon[1];
+        }
+    }else{
+        return source;
+    }
 }
 function cleanClass(string){
 	return string.replace(/ +/g, "-").replace(/\W+/g, "-");
@@ -262,23 +330,23 @@ function swapDisplay(type){
 			$('.iFrame-listing').addClass('hidden').removeClass('show');
 			$('.internal-listing').addClass('show').removeClass('hidden');
 			$('.login-area').addClass('hidden').removeClass('show');
-            $('.plugin-listing').addClass('hidden').removeClass('show');
+			$('.plugin-listing').addClass('hidden').removeClass('show');
 			//$('body').removeClass('fix-header');
 			break;
 		case 'iframe':
-            $('body').addClass('fix-header');
+		    $('body').addClass('fix-header');
 			$('.iFrame-listing').addClass('show').removeClass('hidden');
 			$('.internal-listing').addClass('hidden').removeClass('show');
 			$('.login-area').addClass('hidden').removeClass('show');
-            $('.plugin-listing').addClass('hidden').removeClass('show');
+			$('.plugin-listing').addClass('hidden').removeClass('show');
 			//$('body').addClass('fix-header');
 			break;
 		case 'login':
-            $('body').removeClass('fix-header');
+		    $('body').removeClass('fix-header');
 			$('.iFrame-listing').addClass('hidden').removeClass('show');
 			$('.internal-listing').addClass('hidden').removeClass('show');
 			$('.login-area').addClass('show').removeClass('hidden');
-            $('.plugin-listing').addClass('hidden').removeClass('show');
+			$('.plugin-listing').addClass('hidden').removeClass('show');
 			if(activeInfo.settings.misc.minimalLoginScreen == true){
                 $('.sidebar').addClass('hidden');
                 $('.navbar').addClass('hidden');
@@ -611,6 +679,22 @@ function accordionOptions(options, parentID){
 	});
 	return accordionOptions;
 }
+function buildAccordion(array){
+    var items = '';
+    var mainId = createRandomString(10);
+    $.each(array, function(i,v) {
+        var id = mainId + '-' + i;
+        items += `
+        <div class="panel">
+            <div class="panel-heading bg-org" id="`+id+`-heading" role="tab"> <a class="panel-title collapsed" data-toggle="collapse" href="#`+id+`-collapse" data-parent="#`+mainId+`" aria-expanded="false" aria-controls="`+id+`-collapse"> `+v.title+` </a> </div>
+            <div class="panel-collapse collapse" id="`+id+`-collapse" aria-labelledby="`+id+`-heading" role="tabpanel">
+                <div class="panel-body"> `+v.body+` </div>
+            </div>
+        </div>
+        `;
+    });
+    return '<div class="panel-group" id="'+mainId+'" aria-multiselectable="true" role="tablist">' + items + '</div>';
+}
 function buildFormItem(item){
 	var placeholder = (item.placeholder) ? ' placeholder="'+item.placeholder+'"' : '';
 	var id = (item.id) ? ' id="'+item.id+'"' : '';
@@ -691,7 +775,8 @@ function buildPluginsItem(array){
             <div class="panel bg-org panel-info">
                 <div class="panel-heading">
                     <span lang="en">`+v.name+` Settings</span>
-                    <button id="`+v.idPrefix+`-settings-page-save" onclick="submitSettingsForm('`+v.idPrefix+`-settings-page')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
+                    <button type="button" class="pull-right mfp-close m-r-20 m-t-10">&#215;</button>
+                    <button id="`+v.idPrefix+`-settings-page-save" onclick="submitSettingsForm('`+v.idPrefix+`-settings-page')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
                 </div>
                 <div class="panel-wrapper collapse in" aria-expanded="true">
                     <div class="panel-body bg-org">
@@ -1234,7 +1319,8 @@ function buildHomepageItem(array){
                         <div class="panel bg-org panel-info">
                             <div class="panel-heading">
                                 <span lang="en">`+v.name+`</span>
-                                <button id="homepage-`+v.name+`-form-save" onclick="submitSettingsForm('homepage-`+v.name+`-form')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
+                                <button type="button" class="pull-right mfp-close m-r-20 m-t-10">&#215;</button>
+                                <button id="homepage-`+v.name+`-form-save" onclick="submitSettingsForm('homepage-`+v.name+`-form')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
                             </div>
                             <div class="panel-wrapper collapse in" aria-expanded="true">
                                 <div class="panel-body bg-org">
@@ -1482,14 +1568,13 @@ function settingsAPI(post, callbacks=null){
 }
 /* END ORGANIZR API FUNCTIONS */
 function buildLanguage(replace=false,newLang=null){
-	var languages = languageList();
 	var languageItems = '';
 	var currentLanguage = (getCookie('organizrLanguage')) ? getCookie('organizrLanguage') : window.lang.currentLang;
-	$.each(languages, function(i,v) {
-		var active = (i == currentLanguage) ? '' : '';
+	$.each(languageList, function(i,v) {
+		var active = (v.code == currentLanguage) ? '' : '';
 		languageItems += `
-			<a onclick="window.lang.change('`+i+`');buildLanguage(true,'`+v.lang+`')" href="javascript:void(0);" class="`+active+`">
-				<div class="mail-contnet"><h5>`+v.lang+`</h5><span class="mail-desc" lang="en">`+active+`</span></div>
+			<a onclick="window.lang.change('`+v.code+`');buildLanguage(true,'`+v.language+`')" href="javascript:void(0);" class="`+active+`">
+				<div class="mail-content"><h5 class="m-0">`+v.language+`</h5><span class="mail-desc" lang="en">`+active+`</span></div>
 			</a>
 		`;
 	});
@@ -1508,6 +1593,7 @@ function buildLanguage(replace=false,newLang=null){
 		</li>
 	`;
 	if(replace == true){
+	    setLangCookie(newLang);
 		$('#languageDropdown').replaceWith(lang);
 		message("",window.lang.translate('Changed Language To')+": "+newLang,activeInfo.settings.notifications.position,"#FFF","success","3500");
 	}else if(replace == 'wizard'){
@@ -1702,8 +1788,11 @@ function revokeToken(token,id){
     });
 }
 function buildActiveTokens(array) {
+    var parser = new UAParser();
     var tokens = '';
     $.each(array, function(i,v) {
+        parser.setUA(v.browser);
+        var result = parser.getResult();
         var className = (activeInfo.user.token == v.token) ? 'bg-success text-inverse' : '';
         var extraText = (activeInfo.user.token == v.token) ? '<span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="Current Token">...'+v.token.substr(-10, 10)+'</span>' : v.token.substr(-10, 10);
         tokens += `
@@ -1712,6 +1801,31 @@ function buildActiveTokens(array) {
                 <td>`+extraText+`</td>
                 <td>`+moment(v.created).format('LLL')+`</td>
                 <td>`+moment(v.expires).format('LLL')+`</td>
+                <td><a data-toggle="collapse" href="#token-`+v.id+`-info" aria-expanded="false" href="javascript:void(0)">`+(result.browser.name)+`</a>
+                    <div id="token-`+v.id+`-info" class="table-responsive collapse">
+                        <table class="table color-bordered-table purple-bordered-table">
+                            <tbody class="bg-org">
+                                <tr>
+                                    <td>Browser</td>
+                                    <td>`+result.browser.name+`</td>
+                                </tr>
+                                <tr>
+                                    <td>Version</td>
+                                    <td>`+result.browser.version+`</td>
+                                </tr>
+                                <tr>
+                                    <td>OS</td>
+                                    <td>`+result.os.name+`</td>
+                                </tr>
+                                <tr>
+                                    <td>Version</td>
+                                    <td>`+result.os.version+`</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+</td>
+                <td>`+(v.ip)+`</td>
                 <td>
                     <button class="btn btn-danger waves-effect waves-light" type="button" onclick="revokeToken('`+v.token+`', '`+v.id+`');"><i class="fa fa-ban"></i></button>
                 </td>
@@ -1734,6 +1848,8 @@ function buildActiveTokens(array) {
                                         <th>Token</th>
                                         <th>Created</th>
                                         <th>Expires</th>
+                                        <th>Browser</th>
+                                        <th>IP</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -1841,29 +1957,40 @@ function accountManager(user){
 									<div class="form-body">
 									    `+buildTwoFA(user.data.user.authService)+`
 										<div class="row">
-											<div class="col-md-6">
-												<div class="form-group">
-													<label class="control-label" lang="en">Username</label>
-													<input `+twoFADisable+` type="text" id="accountUsername" class="form-control" value="`+activeInfo.user.username+`"></div>
-											</div>
-											<div class="col-md-6">
-												<div class="form-group">
-													<label class="control-label" lang="en">Email</label>
-													<input `+twoFADisable+` type="text" id="accountEmail" class="form-control" value="`+activeInfo.user.email+`"></div>
-											</div>
+                                            <div class="col-lg-12">
+                                                <div class="panel panel-info">
+                                                    <div class="panel-heading"> <span lang="en">User Information</span>
+                                                        <div class="pull-right"><a href="#" data-perform="panel-collapse"><i class="ti-plus"></i></a> </div>
+                                                    </div>
+                                                    <div class="panel-wrapper collapse" aria-expanded="true">
+                                                        <div class="panel-body bg-org p-0 p-t-10">
+                                                            <div class="col-md-6">
+                                                                <div class="form-group">
+                                                                    <label class="control-label" lang="en">Username</label>
+                                                                    <input `+twoFADisable+` type="text" id="accountUsername" class="form-control" value="`+activeInfo.user.username+`"></div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <div class="form-group">
+                                                                    <label class="control-label" lang="en">Email</label>
+                                                                    <input `+twoFADisable+` type="text" id="accountEmail" class="form-control" value="`+activeInfo.user.email+`"></div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <div class="form-group">
+                                                                    <label class="control-label" lang="en">Password</label>
+                                                                    <input type="password" id="accountPassword1" class="form-control"></div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <div class="form-group">
+                                                                    <label class="control-label" lang="en">Verify Password</label>
+                                                                    <input type="password" id="accountPassword2" class="form-control"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
 										</div>
 										<!--/row-->
 										<div class="row">
-											<div class="col-md-6">
-												<div class="form-group">
-													<label class="control-label" lang="en">Password</label>
-													<input type="password" id="accountPassword1" class="form-control"></div>
-											</div>
-											<div class="col-md-6">
-												<div class="form-group">
-													<label class="control-label" lang="en">Verify Password</label>
-													<input type="password" id="accountPassword2" class="form-control"></div>
-											</div>
 											`+activeTokens+passwordMessage+`
 										</div>
 										<!--/row-->
@@ -1901,6 +2028,7 @@ function userMenu(user){
 					<li class="append-menu"><a class="inline-popups" href="#account-area" data-effect="mfp-zoom-out"><i class="ti-settings fa-fw"></i> <span lang="en">Account Settings</span></a></li>
 					<li class="divider" role="separator"></li>
 					<li><a href="javascript:void(0)" onclick="lock();"><i class="ti-lock fa-fw"></i> <span lang="en">Lock Screen</span></a></li>
+					<li><a href="javascript:void(0)" onclick="toggleDebug();"><i class="mdi mdi-bug fa-fw"></i> <span lang="en">Debug Area</span></a></li>
 					<li><a href="javascript:void(0)" onclick="logout();"><i class="fa fa-sign-out fa-fw"></i> <span lang="en">Logout</span></a></li>
 				</ul><!-- /.dropdown-user -->
 			</li><!-- /.dropdown -->
@@ -1983,23 +2111,49 @@ function tabProcess(arrayItems) {
 	var defaultTabType = null;
 	if (Array.isArray(arrayItems['data']['tabs']) && arrayItems['data']['tabs'].length > 0) {
 		$.each(arrayItems['data']['tabs'], function(i,v) {
-			if(v.enabled === 1){
+			if(v.enabled === 1 && v.access_url){
                 if(v.default === 1){
                     defaultTabName = cleanClass(v.name);
                     defaultTabType = v.type;
                 }
+                var menuList = buildMenuList(v.name,v.access_url,v.type,v.image,v.ping_url);
+                if(v.category_id === 0){
+                    if(activeInfo.settings.misc.unsortedTabs === 'top'){
+                        $(menuList).prependTo($('#side-menu'));
+                    }else if(activeInfo.settings.misc.unsortedTabs === 'bottom') {
+                        $(menuList).appendTo($('#side-menu'));
+                    }
+                }else{
+                    $(menuList).prependTo($('.category-'+v.category_id));
+                }
+                $('#side-menu').metisMenu({ toggle: false });
 				switch (v.type) {
 					case 0:
 					case '0':
 					case 'internal':
-						internalList = buildInternalContainer(v.name,v.url,v.type);
+						internalList = buildInternalContainer(v.name,v.access_url,v.type);
 						$(internalList).appendTo($('.internal-listing'));
+                        if(v.preload){
+                            var newTab = $('#internal-'+cleanClass(v.name));
+                            console.log('Tab Function: Preloading new tab for: '+cleanClass(v.name));
+                            $('#menu-'+cleanClass(v.name)+' a').children().addClass('tabLoaded');
+                            newTab.addClass("loaded");
+                            loadInternal(v.access_url,cleanClass(v.name));
+                        }
 						break;
 					case 1:
 					case '1':
-					case 'iframe':
-						iFrameList = buildFrameContainer(v.name,v.url,v.type);
+                    case 'iframe':
+						iFrameList = buildFrameContainer(v.name,v.access_url,v.type);
 						$(iFrameList).appendTo($('.iFrame-listing'));
+                        if(v.preload){
+                            var newTab = $('#container-'+cleanClass(v.name));
+                            var tabURL = newTab.attr('data-url');
+                            console.log('Tab Function: Preloading new tab for: '+cleanClass(v.name));
+                            $('#menu-'+cleanClass(v.name)+' a').children().addClass('tabLoaded');
+                            newTab.addClass("loaded");
+                            $(buildFrame(cleanClass(v.name),tabURL)).appendTo(newTab);
+                        }
 						break;
 					case 2:
 					case 3:
@@ -2011,17 +2165,6 @@ function tabProcess(arrayItems) {
 					default:
 						console.error('Tab Process: Action not set');
 				}
-				menuList = buildMenuList(v.name,v.url,v.type,v.image,v.ping_url);
-				if(v.category_id === 0){
-                    if(activeInfo.settings.misc.unsortedTabs === 'top'){
-                        $(menuList).prependTo($('#side-menu'));
-                    }else if(activeInfo.settings.misc.unsortedTabs === 'bottom') {
-                        $(menuList).appendTo($('#side-menu'));
-                    }
-				}else{
-					$(menuList).prependTo($('.category-'+v.category_id));
-				}
-				$('#side-menu').metisMenu({ toggle: false });
 			}
 		});
 		getDefault(defaultTabName,defaultTabType);
@@ -2061,18 +2204,23 @@ function buildSplashScreenItem(arrayItems){
     if (Array.isArray(arrayItems['data']['tabs']) && arrayItems['data']['tabs'].length > 0) {
         arrayItems['data']['tabs'].sort((a, b) => parseFloat(a.order) - parseFloat(b.order));
         $.each(arrayItems['data']['tabs'], function(i,v) {
-            if(v.enabled === 1 && v.splash === 1){
+            if(v.enabled === 1 && v.splash === 1 && v.access_url){
+                var image = iconPrefixSplash(v.image);
+                if(image.indexOf('.') !== -1){
+                    var dataSrc = 'data-src="'+iconPrefixSplash(v.image)+'"';
+                    var nonImage = '';
+                }else{
+                    var dataSrc = '';
+                    var nonImage = '<span class="text-uppercase badge bg-org splash-badge">'+image+'</span>';
+                }
                 splashList += `
-                <div class="col-xs-12 col-sm-3 col-md-3 col-lg-3 col-xl-2 mouse" id="menu-`+cleanClass(v.name)+`" type="`+v.type+`" data-url="`+v.url+`" onclick="tabActions(event,'`+cleanClass(v.name)+`',`+v.type+`);">
-                    <div class="panel panel-default">
-                        <div class="panel-heading bg-info p-t-10 p-b-10">
-                            <span class="pull-left m-t-5 elip">`+iconPrefix(v.image)+` &nbsp; `+v.name+`</span>
-                            <div class="clearfix"></div>
-                        </div>
+                <div class="col-xs-12 col-sm-3 col-md-3 col-lg-3 col-xl-2 mouse hvr-grow m-b-20" id="menu-`+cleanClass(v.name)+`" type="`+v.type+`" data-url="`+v.access_url+`" onclick="tabActions(event,'`+cleanClass(v.name)+`',`+v.type+`);">
+                    <div class="homepage-drag fc-event bg-org lazyload"  `+ dataSrc +`>
+                        `+nonImage+`
+                        <span class="homepage-text">&nbsp; `+v.name+`</span>
                     </div>
                 </div>
                 `;
-
             }
         });
     }
@@ -2088,12 +2236,9 @@ function buildSplashScreen(json){
         <section id="splashScreen" class="lock-screen splash-screen fade in">
             <div class="row p-20 flexbox">`+items+`</div>
             <div class="row p-20 p-t-0 flexbox">
-                <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mouse" onclick="$('.splash-screen').addClass('hidden').removeClass('in')">
-                    <div class="panel panel-default">
-                        <div class="panel-heading bg-info p-t-10 p-b-10">
-                            <span class="pull-left m-t-5 elip">`+iconPrefix('fontawesome::home')+` &nbsp; Close Splash</span>
-                            <div class="clearfix"></div>
-                        </div>
+                <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mouse hvr-wobble-bottom" onclick="$('.splash-screen').addClass('hidden').removeClass('in')">
+                    <div class="homepage-drag fc-event bg-danger lazyload"  data-src="">
+                        <span class="homepage-text">&nbsp; Close Splash</span>
                     </div>
                 </div>
             </div>
@@ -2101,7 +2246,6 @@ function buildSplashScreen(json){
         `;
         $(splash).appendTo($('body'));
         $('.append-menu').after(menu);
-
     }
 }
 function buildUserGroupSelect(array, userID, groupID){
@@ -2134,7 +2278,6 @@ function buildTabGroupSelect(array, tabID, groupID){
 	return '<td><select name="tab['+tabID+'].group_id" class="form-control tabGroupSelect">'+groupSelect+'</select></td>';
 }
 function buildTabTypeSelect(tabID, typeID, disabled){
-    console.log(tabID, typeID, disabled);
 	var array = [
 		{
 			'type_id':0,
@@ -2283,7 +2426,7 @@ function buildTabEditorItem(array){
 		var buttonDisabled = v.url.indexOf('/settings/') > 0 ? 'disabled' : '';
         var typeDisabled = v.url.indexOf('/?v1/') > 0 ? 'disabled' : '';
 		tabList += `
-		<tr class="tabEditor" data-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`">
+		<tr class="tabEditor" data-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-local-url="`+v.url_local+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].id" value="`+v.id+`">
 			<input type="hidden" class="form-control order" name="tab[`+v.id+`].order" value="`+v.order+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].originalOrder" value="`+v.order+`">
@@ -2304,7 +2447,7 @@ function buildTabEditorItem(array){
 					</div>
 				</div>
 			</td>
-			<td>`+v.name+`</td>
+			<td><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+v.url+`">`+v.name+`</span></td>
 			`+buildTabCategorySelect(array.categories,v.id, v.category_id)+`
 			`+buildTabGroupSelect(array.groups,v.id, v.group_id)+`
 			`+buildTabTypeSelect(v.id, v.type, typeDisabled)+`
@@ -2313,6 +2456,7 @@ function buildTabEditorItem(array){
 			<td style="text-align:center"><input `+buttonDisabled+` type="checkbox" class="js-switch enabledSwitch `+buttonDisabled+`" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].enabled" value="true" `+tof(v.enabled,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].enabled" value="false"></td>
 			<td style="text-align:center"><input type="checkbox" class="js-switch splashSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].splash" value="true" `+tof(v.splash,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].splash" value="false"></td>
 			<td style="text-align:center"><input type="checkbox" class="js-switch pingSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].ping" value="true" `+tof(v.ping,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].ping" value="false"></td>
+			<td style="text-align:center"><input type="checkbox" class="js-switch preloadSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].preload" value="true" `+tof(v.preload,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].preload" value="false"></td>
 			<td style="text-align:center"><button type="button" class="btn btn-info btn-outline btn-circle btn-lg m-r-5 editTabButton popup-with-form" href="#edit-tab-form" data-effect="mfp-3d-unfold"><i class="ti-pencil-alt"></i></button></td>
 			<td style="text-align:center"><button type="button" class="btn btn-danger btn-outline btn-circle btn-lg m-r-5 `+deleteDisabled+`"><i class="ti-trash"></i></button></td>
 		</tr>
@@ -2586,7 +2730,7 @@ function sponsorAbout(id,array){
 function buildSponsor(array){
     var sponsors = '';
     $.each(array, function(i,v) {
-        var sponsorAboutModal = (v.about) ? 'data-toggle="modal" data-target="#sponsor-'+i+'-modal"' : '';
+        var sponsorAboutModal = (v.about) ? 'data-toggle="modal" data-target="#sponsor-'+i+'-modal"' : 'onclick="window.open(\''+ v.website +'\', \'_blank\')"';
         sponsors += `
             <!-- /.usercard -->
             <div class="item lazyload recent-sponsor mouse imageSource mouse" `+sponsorAboutModal+` data-src="`+v.logo+`">
@@ -3062,9 +3206,12 @@ function loadAppearance(appearance){
 
 }
 function clearForm(form){
-	$(form+" input[type=text]", form+" input[type=password]").each(function() {
+	$(form+" input[type=text]").each(function() {
         $(this).val('');
-    })
+    });
+    $(form+" input[type=password]").each(function() {
+        $(this).val('');
+    });
 }
 function checkMessage(){
 	var check = (local('get','message')) ? local('get','message') : false;
@@ -3146,7 +3293,7 @@ function errorPage(error=null,uri=null){
 		$('.error-page').html(buildErrorPage(local('get', 'error')));
 		$('.error-page').fadeIn();
 		local('remove', 'error');
-		window.history.pushState({}, document.title, "/" );
+		window.history.pushState({}, document.title, "./" );
 	}
 
 }
@@ -3201,11 +3348,11 @@ function buildStreamItem(array,source){
 		switch (v.type) {
 			case 'music':
 				icon = 'icon-music-tone-alt';
-				width = 56;
-				bg = `
+				width = (v.nowPlayingImageURL !== 'plugins/images/cache/no-np.png') ? 56 : 100;
+				bg = (v.nowPlayingImageURL !== 'plugins/images/cache/no-np.png') ? `
 				<img class="imageSource imageSourceLeft" src="`+v.nowPlayingImageURL+`">
 				<img class="imageSource imageSourceRight" src="`+v.nowPlayingImageURL+`">
-				`;
+				` : '';
 				break;
 			case 'movie':
 				icon = 'icon-film';
@@ -3912,6 +4059,7 @@ function ombiActions(id,action,type){
 	//console.log(id,action,type);
 	var msg = (activeInfo.user.groupID <= 1) ? '<a href="https://github.com/tidusjar/Ombi/issues/2176" target="_blank">Not Org Fault - Ask Ombi</a>' : 'Connection Error to Request Server';
 	ajaxloader('.preloader-'+id,'in');
+    ajaxloader('.mfp-content .white-popup .col-md-8 .white-box .user-bg','in');
 	organizrAPI('POST','api/?v1/ombi',{id:id, action:action, type:type}).success(function(data) {
 		var response = JSON.parse(data);
 		console.log(response.data);
@@ -4000,282 +4148,312 @@ function requestList (list, type, page=1) {
 	});
 }
 function buildDownloaderItem(array, source, type='none'){
-	var items = '';
+    //console.log(array);
+    var queue = '';
+    var history = '';
 	switch (source) {
 		case 'sabnzbd':
-			switch (type) {
-				case 'queue':
-					if(array.queue.slots.length == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
-					}
-					$.each(array.queue.slots, function(i,v) {
-						var action = (v.status == "Downloading") ? 'pause' : 'resume';
-						var actionIcon = (v.status == "Downloading") ? 'pause' : 'play';
-						items += `
-						<tr>
-							<td class="max-texts">`+v.filename+`</td>
-							<td class="hidden-xs">`+v.status+`</td>
-                            <td class="downloader mouse" data-target="`+v.nzo_id+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>
-                            <td class="hidden-xs"><span class="label label-info">`+v.cat+`</span></td>
-                            <td class="hidden-xs">`+v.size+`</td>
-                            <td class="hidden-xs" alt="`+v.eta+`">`+v.timeleft+`</td>
-                            <td class="text-right">
-								<div class="progress progress-lg m-b-0">
-                                    <div class="progress-bar progress-bar-info" style="width: `+v.percentage+`%;" role="progressbar">`+v.percentage+`%</div>
-                                </div>
-							</td>
-                        </tr>
-						`;
-					});
-					break;
-				case 'history':
-					if(array.history.slots.length == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in history</td></tr>';
-					}
-					$.each(array.history.slots, function(i,v) {
-						items += `
-						<tr>
-							<td class="max-texts">`+v.name+`</td>
-                            <td class="hidden-xs">`+v.status+`</td>
-                            <td class="hidden-xs"><span class="label label-info">`+v.category+`</span></td>
-                            <td class="hidden-xs">`+v.size+`</td>
-                            <td class="text-right">
-								<div class="progress progress-lg m-b-0">
-                                    <div class="progress-bar progress-bar-info" style="width: 100%;" role="progressbar">100%</div>
-                                </div>
-							</td>
-                        </tr>
-						`;
-					});
-					break;
-				default:
-					return false;
-			}
+            if(array.content.queueItems.queue.paused){
+                var state = `<a href="#"><span class="downloader mouse" data-source="sabnzbd" data-action="resume" data-target="main"><i class="fa fa-play"></i></span></a>`;
+                var active = 'grayscale';
+            }else{
+                var state = `<a href="#"><span class="downloader mouse" data-source="sabnzbd" data-action="pause" data-target="main"><i class="fa fa-pause"></i></span></a>`;
+                var active = '';
+            }
+            $('.sabnzbd-downloader-action').html(state);
+
+            if(array.content.queueItems.queue.slots.length == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems.queue.slots, function(i,v) {
+                var action = (v.status == "Downloading") ? 'pause' : 'resume';
+                var actionIcon = (v.status == "Downloading") ? 'pause' : 'play';
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.filename+`</td>
+                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="downloader mouse" data-target="`+v.nzo_id+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>
+                    <td class="hidden-xs"><span class="label label-info">`+v.cat+`</span></td>
+                    <td class="hidden-xs">`+v.size+`</td>
+                    <td class="hidden-xs" alt="`+v.eta+`">`+v.timeleft+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+v.percentage+`%;" role="progressbar">`+v.percentage+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+            if(array.content.historyItems.history.slots.length == 0){
+                history = '<tr><td class="max-texts" lang="en">Nothing in history</td></tr>';
+            }
+            $.each(array.content.historyItems.history.slots, function(i,v) {
+                history += `
+                <tr>
+                    <td class="max-texts">`+v.name+`</td>
+                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="hidden-xs"><span class="label label-info">`+v.category+`</span></td>
+                    <td class="hidden-xs">`+v.size+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: 100%;" role="progressbar">100%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
 			break;
 		case 'nzbget':
-			switch (type) {
-				case 'queue':
-					if(array.result.length == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
-					}
-					$.each(array.result, function(i,v) {
-						var action = (v.Status == "Downloading") ? 'pause' : 'resume';
-						var actionIcon = (v.Status == "Downloading") ? 'pause' : 'play';
-						var percent = Math.floor((v.FileSizeMB - v.RemainingSizeMB) * 100 / v.FileSizeMB);
-						v.Category = (v.Category !== '') ? v.Category : 'Not Set';
-						items += `
-						<tr>
-							<td class="max-texts">`+v.NZBName+`</td>
-							<td class="hidden-xs">`+v.Status+`</td>
-							<!--<td class="downloader mouse" data-target="`+v.NZBID+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>-->
-							<td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
-							<td class="hidden-xs">`+humanFileSize(v.FileSizeLo,true)+`</td>
-							<td class="text-right">
-								<div class="progress progress-lg m-b-0">
-									<div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
-								</div>
-							</td>
-						</tr>
-						`;
-					});
-					break;
-				case 'history':
-					if(array.result.length == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in history</td></tr>';
-					}
-					$.each(array.result, function(i,v) {
-						v.Category = (v.Category !== '') ? v.Category : 'Not Set';
-						items += `
-						<tr>
-							<td class="max-texts">`+v.NZBName+`</td>
-							<td class="hidden-xs">`+v.Status+`</td>
-							<td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
-							<td class="hidden-xs">`+humanFileSize(v.FileSizeLo,true)+`</td>
-							<td class="text-right">
-								<div class="progress progress-lg m-b-0">
-									<div class="progress-bar progress-bar-info" style="width: 100%;" role="progressbar">100%</div>
-								</div>
-							</td>
-						</tr>
-						`;
-					});
-					break;
-				default:
-
-			}
+            if(array.content.queueItems.result.length == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems.result, function(i,v) {
+                var action = (v.Status == "Downloading") ? 'pause' : 'resume';
+                var actionIcon = (v.Status == "Downloading") ? 'pause' : 'play';
+                var percent = Math.floor((v.FileSizeMB - v.RemainingSizeMB) * 100 / v.FileSizeMB);
+                var size = v.FileSizeMB * 1000000;
+                v.Category = (v.Category !== '') ? v.Category : 'Not Set';
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.NZBName+`</td>
+                    <td class="hidden-xs">`+v.Status+`</td>
+                    <!--<td class="downloader mouse" data-target="`+v.NZBID+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>-->
+                    <td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
+                    <td class="hidden-xs">`+humanFileSize(size,true)+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+            if(array.content.historyItems.result.length == 0){
+                history = '<tr><td class="max-texts" lang="en">Nothing in history</td></tr>';
+            }
+            $.each(array.content.historyItems.result, function(i,v) {
+                v.Category = (v.Category !== '') ? v.Category : 'Not Set';
+                var size = v.FileSizeMB * 1000000;
+                history += `
+                <tr>
+                    <td class="max-texts">`+v.NZBName+`</td>
+                    <td class="hidden-xs">`+v.Status+`</td>
+                    <td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
+                    <td class="hidden-xs">`+humanFileSize(size,true)+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: 100%;" role="progressbar">100%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
 			break;
 		case 'transmission':
-			switch (type) {
-				case 'queue':
-					if(array.arguments.torrents == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
-					}
-					$.each(array.arguments.torrents, function(i,v) {
-						switch (v.status) {
-							case 7:
-							case '7':
-								var status = 'No Peers';
-								break;
-							case 6:
-							case '6':
-								var status = 'Seeding';
-								break;
-							case 5:
-							case '5':
-								var status = 'Seeding Queued';
-								break;
-							case 4:
-							case '4':
-								var status = 'Downloading';
-								break;
-							case 3:
-							case '3':
-								var status = 'Queued';
-								break;
-							case 2:
-							case '2':
-								var status = 'Checking Files';
-								break;
-							case 1:
-							case '1':
-								var status = 'File Check Queued';
-								break;
-							case 0:
-							case '0':
-								var status = 'Complete';
-								break;
-							default:
-								var status = 'Complete';
-						}
-						var percent = Math.floor(v.percentDone * 100);
-						v.Category = (v.Category !== '') ? v.Category : 'Not Set';
-						items += `
-						<tr>
-							<td class="max-texts">`+v.name+`</td>
-							<td class="hidden-xs">`+status+`</td>
-							<td class="hidden-xs">`+v.downloadDir+`</td>
-							<td class="hidden-xs">`+humanFileSize(v.totalSize,true)+`</td>
-							<td class="text-right">
-								<div class="progress progress-lg m-b-0">
-									<div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
-								</div>
-							</td>
-						</tr>
-						`;
-					});
-					break;
-				default:
-
-			}
+            if(array.content.queueItems.arguments.torrents == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems.arguments.torrents, function(i,v) {
+                switch (v.status) {
+                    case 7:
+                    case '7':
+                        var status = 'No Peers';
+                        break;
+                    case 6:
+                    case '6':
+                        var status = 'Seeding';
+                        break;
+                    case 5:
+                    case '5':
+                        var status = 'Seeding Queued';
+                        break;
+                    case 4:
+                    case '4':
+                        var status = 'Downloading';
+                        break;
+                    case 3:
+                    case '3':
+                        var status = 'Queued';
+                        break;
+                    case 2:
+                    case '2':
+                        var status = 'Checking Files';
+                        break;
+                    case 1:
+                    case '1':
+                        var status = 'File Check Queued';
+                        break;
+                    case 0:
+                    case '0':
+                        var status = 'Complete';
+                        break;
+                    default:
+                        var status = 'Complete';
+                }
+                var percent = Math.floor(v.percentDone * 100);
+                v.Category = (v.Category !== '') ? v.Category : 'Not Set';
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.name+`</td>
+                    <td class="hidden-xs">`+status+`</td>
+                    <td class="hidden-xs">`+v.downloadDir+`</td>
+                    <td class="hidden-xs">`+humanFileSize(v.totalSize,true)+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
 			break;
-
+        case 'rTorrent':
+            if(array.content.queueItems == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            //console.log(array);
+            $.each(array.content.queueItems, function(i,v) {
+                var percent = Math.floor((v.downloaded / v.size) * 100);
+                var size = v.size != -1 ? humanFileSize(v.size,false) : "?";
+                var upload = v.seed !== '' ? humanFileSize(v.seed,true) : "0 B";
+                var download = v.leech !== '' ? humanFileSize(v.leech,true) : "0 B";
+                var upTotal = v.upTotal !== '' ? humanFileSize(v.upTotal,false) : "0 B";
+                var downTotal = v.downTotal !== '' ? humanFileSize(v.downTotal,false) : "0 B";
+                var date = new Date(0);
+                date.setUTCSeconds(v.date);
+                date = moment(date).format('LLL');
+                queue += `
+                <tr>
+                    <td class="max-texts"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+date+`">`+v.name+`</span></td>
+                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="hidden-xs"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+downTotal+`"><i class="fa fa-download"></i>&nbsp;`+download+`</span></td>
+                    <td class="hidden-xs"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+upTotal+`"><i class="fa fa-upload"></i>&nbsp;`+upload+`</span></td>
+                    <td class="hidden-xs">`+size+`</td>
+                    <td class="hidden-xs"><span class="label label-info">`+v.label+`</span></td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+            break;
 		case 'qBittorrent':
-			switch (type) {
-				case 'queue':
-					if(array.arguments.torrents == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
-					}
-					$.each(array.arguments.torrents, function(i,v) {
-						switch (v.state) {
-							case 'stalledDL':
-								var status = 'No Peers';
-								break;
-							case 'metaDL':
-								var status = 'Getting Metadata';
-								break;
-							case 'uploading':
-								var status = 'Seeding';
-								break;
-							case 'queuedUP':
-								var status = 'Seeding Queued';
-								break;
-							case 'downloading':
-								var status = 'Downloading';
-								break;
-							case 'queuedDL':
-								var status = 'Queued';
-								break;
-							case 'checkingDL':
-							case 'checkingUP':
-								var status = 'Checking Files';
-								break;
-							case 'pausedDL':
-								var status = 'Paused';
-								break;
-							case 'pausedUP':
-								var status = 'Complete';
-								break;
-							default:
-								var status = 'Complete';
-						}
-						var percent = Math.floor(v.progress * 100);
-						var size = v.total_size != -1 ? humanFileSize(v.total_size,true) : "?";
-						items += `
-						<tr>
-							<td class="max-texts">`+v.name+`</td>
-							<td class="hidden-xs">`+status+`</td>
-							<td class="hidden-xs">`+v.save_path+`</td>
-							<td class="hidden-xs">`+size+`</td>
-							<td class="text-right">
-								<div class="progress progress-lg m-b-0">
-									<div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
-								</div>
-							</td>
-						</tr>
-						`;
-					});
-					break;
-				default:
-
-			}
+            if(array.content.queueItems.arguments.torrents == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems.arguments.torrents, function(i,v) {
+                switch (v.state) {
+                    case 'stalledDL':
+                        var status = 'No Peers';
+                        break;
+                    case 'metaDL':
+                        var status = 'Getting Metadata';
+                        break;
+                    case 'uploading':
+                        var status = 'Seeding';
+                        break;
+                    case 'queuedUP':
+                        var status = 'Seeding Queued';
+                        break;
+                    case 'downloading':
+                        var status = 'Downloading';
+                        break;
+                    case 'queuedDL':
+                        var status = 'Queued';
+                        break;
+                    case 'checkingDL':
+                    case 'checkingUP':
+                        var status = 'Checking Files';
+                        break;
+                    case 'pausedDL':
+                        var status = 'Paused';
+                        break;
+                    case 'pausedUP':
+                        var status = 'Complete';
+                        break;
+                    default:
+                        var status = 'Complete';
+                }
+                var percent = Math.floor(v.progress * 100);
+                var size = v.total_size != -1 ? humanFileSize(v.total_size,true) : "?";
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.name+`</td>
+                    <td class="hidden-xs">`+status+`</td>
+                    <td class="hidden-xs">`+v.save_path+`</td>
+                    <td class="hidden-xs">`+size+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
 			break;
 		case 'deluge':
-			switch (type) {
-				case 'queue':
-					if(array.length == 0){
-						return '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
-					}
-					$.each(array, function(i,v) {
-						var percent = Math.floor(v.progress);
-						var size = v.total_size != -1 ? humanFileSize(v.total_size,true) : "?";
-						var upload = v.upload_payload_rate != -1 ? humanFileSize(v.upload_payload_rate,true) : "?";
-						var download = v.download_payload_rate != -1 ? humanFileSize(v.download_payload_rate,true) : "?";
-						var action = (v.Status == "Downloading") ? 'pause' : 'resume';
-						var actionIcon = (v.Status == "Downloading") ? 'pause' : 'play';
-						items += `
-						<tr>
-							<td class="max-texts">`+v.name+`</td>
-							<td class="hidden-xs">`+v.state+`</td>
-							<td class="hidden-xs">`+size+`</td>
-							<td class="hidden-xs"><i class="fa fa-download"></i>&nbsp;`+download+`</td>
-							<td class="hidden-xs"><i class="fa fa-upload"></i>&nbsp;`+upload+`</td>
-							<td class="text-right">
-								<div class="progress progress-lg m-b-0">
-									<div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
-								</div>
-							</td>
-						</tr>
-						`;
-					});
-					break;
-				default:
-
-			}
+            if(array.content.queueItems.length == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems, function(i,v) {
+                var percent = Math.floor(v.progress);
+                var size = v.total_size != -1 ? humanFileSize(v.total_size,true) : "?";
+                var upload = v.upload_payload_rate != -1 ? humanFileSize(v.upload_payload_rate,true) : "?";
+                var download = v.download_payload_rate != -1 ? humanFileSize(v.download_payload_rate,true) : "?";
+                var action = (v.Status == "Downloading") ? 'pause' : 'resume';
+                var actionIcon = (v.Status == "Downloading") ? 'pause' : 'play';
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.name+`</td>
+                    <td class="hidden-xs">`+v.state+`</td>
+                    <td class="hidden-xs">`+size+`</td>
+                    <td class="hidden-xs"><i class="fa fa-download"></i>&nbsp;`+download+`</td>
+                    <td class="hidden-xs"><i class="fa fa-upload"></i>&nbsp;`+upload+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+percent+`%;" role="progressbar">`+percent+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
 			break;
 		default:
 			return false;
 	}
-	return items;
+    if(queue !== ''){
+        $('.'+source+'-queue').html(queue);
+    }
+    if(history !== ''){
+        $('.'+source+'-history').html(history);
+    }
 }
-function buildDownloader(array, source){
+function buildDownloader(source){
+    var queueButton = 'QUEUE';
+    var historyButton = 'HISTORY';
+    switch (source) {
+        case 'sabnzbd':
+        case 'nzbget':
+            var queue = true;
+            var history = true;
+            break;
+        case 'transmission':
+        case 'qBittorrent':
+        case 'deluge':
+        case 'rTorrent':
+            var queue = true;
+            var history = false;
+            queueButton = 'REFRESH';
+            break;
+        default:
+            var queue = false;
+            var history = false;
+
+    }
 	var menu = `<ul class="nav customtab nav-tabs pull-right" role="tablist">`;
 	var listing = '';
-	if(typeof array.content == 'undefined'){
-	    return false;
-    }
-    var queueItems = (typeof array.content.queueItems !== 'undefined') ? array.content.queueItems : false;
-	var historyItems = (typeof array.content.historyItems !== 'undefined') ? array.content.historyItems : false;
-	var downloader = (queueItems || historyItems) ? true : false;
 	var state = '';
 	var active = '';
 	var headerAlt = '';
@@ -4284,42 +4462,30 @@ function buildDownloader(array, source){
 	//console.log(queueItems);
 	//console.log(historyItems);
 	//console.log(downloader);
-	if(queueItems){
-		switch (source) {
-			case 'sabnzbd':
-				if(queueItems.queue.paused){
-					state = `<span class="downloader mouse" data-source="sabnzbd" data-action="resume" data-target="main"><i class="fa fa-play"></i></span>`;
-					active = 'grayscale';
-				}else{
-					state = `<span class="downloader mouse" data-source="sabnzbd" data-action="pause" data-target="main"><i class="fa fa-pause"></i></span>`;
-				}
-				break;
-			default:
-
-		}
+	if(queue){
 		menu += `
-			<li role="presentation" class="active"><a href="#`+source+`-queue" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class="visible-xs"><i class="ti-download"></i></span><span class="hidden-xs"> QUEUE</span></a></li>
+			<li role="presentation" class="active" onclick="homepageDownloader('`+source+`')"><a href="#`+source+`-queue" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class="visible-xs"><i class="ti-download"></i></span><span class="hidden-xs">`+queueButton+`</span></a></li>
 			`;
 		listing += `
 		<div role="tabpanel" class="tab-pane fade active in" id="`+source+`-queue">
 			<div class="inbox-center table-responsive" data-simplebar>
 				<table class="table table-hover">
-					<tbody class="`+source+`-queue">`+buildDownloaderItem(array.content.queueItems, source, 'queue')+`</tbody>
+					<tbody class="`+source+`-queue"></tbody>
 				</table>
 			</div>
 			<div class="clearfix"></div>
 		</div>
 		`;
 	}
-	if(historyItems){
+	if(history){
 		menu += `
-		<li role="presentation" class=""><a href="#`+source+`-history" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-time"></i></span> <span class="hidden-xs">HISTORY</span></a></li>
+		<li role="presentation" class=""><a href="#`+source+`-history" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-time"></i></span> <span class="hidden-xs">`+historyButton+`</span></a></li>
 		`;
 		listing += `
 		<div role="tabpanel" class="tab-pane fade" id="`+source+`-history">
 			<div class="inbox-center table-responsive" data-simplebar>
 				<table class="table table-hover">
-					<tbody class="`+source+`-history">`+buildDownloaderItem(array.content.historyItems, source, 'history')+`</tbody>
+					<tbody class="`+source+`-history"></tbody>
 				</table>
 			</div>
 			<div class="clearfix"></div>
@@ -4344,7 +4510,7 @@ function buildDownloader(array, source){
 		</div>
 		`;
 	}
-	return downloader ? `
+	return `
 	<div class="row">
 		`+headerAlt+`
 		<div class="col-lg-12">
@@ -4354,7 +4520,104 @@ function buildDownloader(array, source){
 	        </div>
 		</div>
 	</div>
-	` : '';
+	`;
+}
+function buildDownloaderCombined(source){
+    var first = ($('.combinedDownloadRow').length == 0) ? true : false;
+    var active = (first) ? 'active' : '';
+    var queueButton = 'QUEUE';
+    var historyButton = 'HISTORY';
+    switch (source) {
+        case 'sabnzbd':
+        case 'nzbget':
+            var queue = true;
+            var history = true;
+            break;
+        case 'transmission':
+        case 'qBittorrent':
+        case 'deluge':
+        case 'rTorrent':
+            var queue = true;
+            var history = false;
+            queueButton = 'REFRESH';
+            break;
+        default:
+            var queue = false;
+            var history = false;
+
+    }
+    var mainMenu = `<ul class="nav customtab nav-tabs combinedMenuList" role="tablist">`;
+    var addToMainMenu = `<li role="presentation" class="`+active+`"><a onclick="homepageDownloader('`+source+`')" href="#combined-`+source+`" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class=""><img src="./plugins/images/tabs/`+source+`.png" class="homepageImageTitle"></span></a></li>`;
+    var listing = '';
+    var headerAlt = '';
+    var header = '';
+    var menu = `<ul class="nav customtab nav-tabs m-t-5" role="tablist">`;
+    if(queue){
+        menu += `
+			<li role="presentation" class="active" onclick="homepageDownloader('`+source+`')"><a href="#`+source+`-queue" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class="visible-xs"><i class="ti-download"></i></span><span class="hidden-xs">`+queueButton+`</span></a></li>
+			`;
+        listing += `
+		<div role="tabpanel" class="tab-pane fade active in" id="`+source+`-queue">
+			<div class="inbox-center table-responsive" data-simplebar>
+				<table class="table table-hover">
+					<tbody class="`+source+`-queue"></tbody>
+				</table>
+			</div>
+			<div class="clearfix"></div>
+		</div>
+		`;
+    }
+    if(history){
+        menu += `
+		<li role="presentation" class=""><a href="#`+source+`-history" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-time"></i></span> <span class="hidden-xs">`+historyButton+`</span></a></li>
+		`;
+        listing += `
+		<div role="tabpanel" class="tab-pane fade" id="`+source+`-history">
+			<div class="inbox-center table-responsive" data-simplebar>
+				<table class="table table-hover">
+					<tbody class="`+source+`-history"></tbody>
+				</table>
+			</div>
+			<div class="clearfix"></div>
+		</div>
+		`;
+    }
+    menu += '<li class="'+source+'-downloader-action"></li></ul><div class="clearfix"></div>';
+    menu = ((queue) && (history)) ? menu : '';
+    var listingMain = '<div role="tabpanel" class="tab-pane fade '+active+' in" id="combined-'+source+'">'+menu+'<div class="tab-content m-t-0 listingSingle">'+listing+'</div></div>';
+    mainMenu += (first) ? addToMainMenu + '</ul>' : '';
+    if(first){
+        if(activeInfo.settings.homepage.options.alternateHomepageHeaders){
+            var headerAlt = `
+            <div class="col-md-12">
+                `+mainMenu+`
+                <div class="clearfix"></div>
+            </div>
+            `;
+        }else{
+            var header = `
+            <div class="white-box bg-info m-b-0 p-b-0 p-10 mailbox-widget">
+                `+mainMenu+`
+                <div class="clearfix"></div>
+            </div>
+            `;
+        }
+        var built = `
+        <div class="row combinedDownloadRow">
+            `+headerAlt+`
+            <div class="col-lg-12">
+                `+header+`
+                <div class="white-box p-0">
+                    <div class="tab-content m-t-0 listingMain">`+listingMain+`</div>
+                </div>
+            </div>
+        </div>
+        `;
+        $('#homepageOrderdownloader').html(built);
+    }else{
+        $(addToMainMenu).appendTo('.combinedMenuList');
+        $(listingMain).appendTo('.listingMain');
+    }
 }
 function buildMetadata(array, source){
 	var metadata = '';
@@ -4484,14 +4747,17 @@ function homepageDownloader(type, timeout){
 		case 'deluge':
 			var action = 'getDeluge';
 			break;
+        case 'rTorrent':
+            var action = 'getrTorrent';
+            break;
 		default:
 
 	}
 	organizrAPI('POST','api/?v1/homepage/connect',{action:action}).success(function(data) {
 		var response = JSON.parse(data);
-		document.getElementById('homepageOrder'+type).innerHTML = '';
+		//document.getElementById('homepageOrder'+type).innerHTML = '';
 		if(response.data !== null){
-			$('#homepageOrder'+type).html(buildDownloader(response.data, type));
+			buildDownloaderItem(response.data, type);
 		}
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -4634,6 +4900,169 @@ function homepageCalendar(timeout){
 	if(typeof timeouts['calendar'] !== 'undefined'){ clearTimeout(timeouts['calendar']); }
 	timeouts['calendar'] = setTimeout(function(){ homepageCalendar(timeout); }, timeout);
 }
+// Thanks Swifty!
+function PopupCenter(url, title, w, h) {
+    // Fixes dual-screen position                         Most browsers      Firefox
+    var dualScreenLeft = window.screenLeft != undefined ? window.screenLeft : window.screenX;
+    var dualScreenTop = window.screenTop != undefined ? window.screenTop : window.screenY;
+    var width = window.innerWidth ? window.innerWidth : document.documentElement.clientWidth ? document.documentElement.clientWidth : screen.width;
+    var height = window.innerHeight ? window.innerHeight : document.documentElement.clientHeight ? document.documentElement.clientHeight : screen.height;
+    var left = ((width / 2) - (w / 2)) + dualScreenLeft;
+    var top = ((height / 2) - (h / 2)) + dualScreenTop;
+    var newWindow = window.open(url, title, 'scrollbars=yes, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
+    // Puts focus on the newWindow
+    if (window.focus) {
+        newWindow.focus();
+    }
+    return newWindow;
+}
+function getPlexHeaders(){
+    return {
+        'Accept': 'application/json',
+        'X-Plex-Product': activeInfo.appearance.title,
+        'X-Plex-Version': '2.0',
+        'X-Plex-Client-Identifier': activeInfo.settings.misc.uuid,
+    };
+}
+var plex_oauth_window = null;
+const plex_oauth_loader = '<style>' +
+    '.login-loader-container {' +
+    'font-family: "Open Sans", Arial, sans-serif;' +
+    'position: absolute;' +
+    'top: 0;' +
+    'right: 0;' +
+    'bottom: 0;' +
+    'left: 0;' +
+    '}' +
+    '.login-loader-message {' +
+    'color: #282A2D;' +
+    'text-align: center;' +
+    'position: absolute;' +
+    'left: 50%;' +
+    'top: 25%;' +
+    'transform: translate(-50%, -50%);' +
+    '}' +
+    '.login-loader {' +
+    'border: 5px solid #ccc;' +
+    '-webkit-animation: spin 1s linear infinite;' +
+    'animation: spin 1s linear infinite;' +
+    'border-top: 5px solid #282A2D;' +
+    'border-radius: 50%;' +
+    'width: 50px;' +
+    'height: 50px;' +
+    'position: relative;' +
+    'left: calc(50% - 25px);' +
+    '}' +
+    '@keyframes spin {' +
+    '0% { transform: rotate(0deg); }' +
+    '100% { transform: rotate(360deg); }' +
+    '}' +
+    '</style>' +
+    '<div class="login-loader-container">' +
+    '<div class="login-loader-message">' +
+    '<div class="login-loader"></div>' +
+    '<br>' +
+    'Redirecting to the Plex login page...' +
+    '</div>' +
+    '</div>';
+function closePlexOAuthWindow() {
+    if (plex_oauth_window) {
+        plex_oauth_window.close();
+    }
+}
+getPlexOAuthPin = function () {
+    var x_plex_headers = getPlexHeaders();
+    var deferred = $.Deferred();
+    $.ajax({
+        url: 'https://plex.tv/api/v2/pins?strong=true',
+        type: 'POST',
+        headers: x_plex_headers,
+        success: function(data) {
+            deferred.resolve({pin: data.id, code: data.code});
+        },
+        error: function() {
+            closePlexOAuthWindow();
+            deferred.reject();
+        }
+    });
+    return deferred;
+};
+var polling = null;
+function PlexOAuth(success, error, pre) {
+    if (typeof pre === "function") {
+        pre()
+    }
+    closePlexOAuthWindow();
+    plex_oauth_window = PopupCenter('', 'Plex-OAuth', 600, 700);
+    $(plex_oauth_window.document.body).html(plex_oauth_loader);
+    getPlexOAuthPin().then(function (data) {
+        var x_plex_headers = getPlexHeaders();
+        const pin = data.pin;
+        const code = data.code;
+        plex_oauth_window.location = 'https://app.plex.tv/auth/#!?clientID=' + x_plex_headers['X-Plex-Client-Identifier'] + '&code=' + code;
+        polling = pin;
+        (function poll() {
+            $.ajax({
+                url: 'https://plex.tv/api/v2/pins/' + pin,
+                type: 'GET',
+                headers: x_plex_headers,
+                success: function (data) {
+                    if (data.authToken){
+                        closePlexOAuthWindow();
+                        if (typeof success === "function") {
+                            success('plex',data.authToken)
+                        }
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    if (textStatus !== "timeout") {
+                        closePlexOAuthWindow();
+                        if (typeof error === "function") {
+                            error()
+                        }
+                    }
+                },
+                complete: function () {
+                    if (!plex_oauth_window.closed && polling === pin){
+                        setTimeout(function() {poll()}, 1000);
+                    }
+                },
+                timeout: 10000
+            });
+        })();
+    }, function () {
+        closePlexOAuthWindow();
+        if (typeof error === "function") {
+            error()
+        }
+    });
+}
+function oAuthSuccess(type,token){
+    switch(type) {
+        case 'plex':
+            $('#oAuth-Input').val(token);
+            $('#oAuthType-Input').val(type);
+            $('#login-username-Input').addClass('hidden');
+            $('#login-password-Input').addClass('hidden');
+            $('#oAuth-div').removeClass('hidden');
+            $('.login-button').trigger('click');
+            break;
+        default:
+            break;
+    }
+}
+function oAuthError(){
+    messageSingle('',window.lang.translate('Error Connecting to oAuth Provider'),activeInfo.settings.notifications.position,'#FFF','error','5000');
+}
+function oAuthStart(type){
+    switch(type){
+        case 'plex':
+            PlexOAuth(oAuthSuccess,oAuthError);
+            break;
+        default:
+            break;
+    }
+}
 function clearAJAX(id='all'){
 	if(id == 'all'){
 		$.each(timeouts, function(i,v) {
@@ -4762,6 +5191,22 @@ function inlineLoad(){
 	  },
 	  midClick: true // allow opening popup on middle mouse click. Always set it to true if you don't provide alternative source.
 	});
+}
+//Import Users
+function importUsers(type){
+    $('.importUsersButton').attr('disabled', true);
+    messageSingle('',window.lang.translate('Importing Users'),activeInfo.settings.notifications.position,'#FFF','success','5000');
+    organizrAPI('POST','api/?v1/import/users',{type:type}).success(function(data) {
+        var response = JSON.parse(data);
+        if(response.data !== false){
+            messageSingle('',window.lang.translate('Imported [' + response.data + '] Users'),activeInfo.settings.notifications.position,'#FFF','success','5000');
+            $('.importUsersButton').attr('disabled', false);
+        }else{
+            messageSingle('','Imported Users Error',activeInfo.settings.notifications.position,'#FFF','error','5000');
+        }
+    }).fail(function(xhr) {
+        console.error("Organizr Function: API Connection Failed");
+    });
 }
 //Settings change auth
 function changeAuth(){
@@ -4981,14 +5426,14 @@ function pingUpdate(pingList,timeout){
                         catElm.html(error);
                         elm.parent().find('img').addClass('grayscale');
                         var msg = (sendMessage) ? message(tabName,'Server Down',activeInfo.settings.notifications.position,'#FFF','error','600000') : '';
-                        var audio = (sendMessage) ? audioDown.play() : '';
+                        var audio = (sendMessage && activeInfo.settings.ping.statusSounds) ? audioDown.play() : '';
                         break;
                     default:
                         if(catElm.length > 0){ goodCount = goodCount + 1; catElm.attr('data-good', goodCount); if(badCount == 0){ catElm.html(success); } }
                         elm.html(success);
                         elm.parent().find('img').removeClass('grayscale');
                         var msg = (sendMessage) ? message(tabName,'Server Back Online',activeInfo.settings.notifications.position,'#FFF','success','600000') : '';
-                        var audio = (sendMessage) ? audioUp.play() : '';
+                        var audio = (sendMessage && activeInfo.settings.ping.statusSounds) ? audioUp.play() : '';
                 }
             });
         }
@@ -5023,7 +5468,8 @@ function include(filename) {
     return false;
 }
 function defineNotification(){
-    switch(activeInfo.settings.notifications.backbone){
+    var bb = (typeof activeInfo !== 'undefined') ? activeInfo.settings.notifications.backbone : 'izi';
+    switch(bb){
         case 'toastr':
             include('plugins/bower_components/toast-master/css/jquery.toast.css');
             include('plugins/bower_components/toast-master/js/jquery.toast.js');
@@ -5099,7 +5545,7 @@ function messagePositions(){
     };
 }
 function message(heading,text,position,color,icon,timeout){
-    var bb = activeInfo.settings.notifications.backbone;
+    var bb = (typeof activeInfo !== 'undefined') ? activeInfo.settings.notifications.backbone : 'izi';
     switch (bb) {
         case 'toastr':
 
@@ -5140,20 +5586,6 @@ function message(heading,text,position,color,icon,timeout){
                 });
                 break;
             case 'izi':
-                iziToast.settings({
-                    close: true,
-                    progressBar: true,
-                    progressBarEasing: 'ease',
-                    class: icon+'-notify',
-                    title: heading,
-                    message: text,
-                    position: position,
-                    timeout: timeout,
-                    layout: 2,
-                    transitionIn: 'flipInX',
-                    transitionOut: 'flipOutX',
-                    balloon: false,
-                });
                 switch (icon){
                     case 'success':
                         var msg = {
@@ -5185,7 +5617,21 @@ function message(heading,text,position,color,icon,timeout){
                             icon: 'mdi mdi-alert-circle-outline',
                         };
                 }
-                iziToast.show(msg);
+                iziToast.show({
+                    close: true,
+                    progressBar: true,
+                    progressBarEasing: 'ease',
+                    class: icon+'-notify',
+                    title: heading,
+                    message: text,
+                    position: position,
+                    timeout: timeout,
+                    layout: 2,
+                    transitionIn: 'flipInX',
+                    transitionOut: 'flipOutX',
+                    balloon: false,
+                    icon: msg['icon'],
+                });
                 break;
             case 'alertify':
                 var msgFull = (heading !== '') ? heading + '<br/>' + text : text;
@@ -5350,6 +5796,10 @@ function authDebugCheck(){
     }
 }
 function lock(){
+    if(activeInfo.settings.user.oAuthLogin == true){
+        message('Lock Disabled','Lock function disabled if logged in via oAuth',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+        return false;
+    }
     organizrAPI('POST','api/?v1/lock','').success(function(data) {
         var html = JSON.parse(data);
         console.log(html);
@@ -5396,12 +5846,22 @@ function toggleFullScreen() {
         }
     }
 }
+function orgErrorCode(code){
+    switch (code) {
+        case 'upgrading':
+            window.location.href = './plugins/static/upgrade.html';
+        default:
+
+    }
+}
 function launch(){
 	organizrConnect('api/?v1/launch_organizr').success(function (data) {
         try {
             var json = JSON.parse(data);
         } catch (e) {
-            message('FATAL ERROR',data,activeInfo.settings.notifications.position,'#FFF','error','60000');
+            orgErrorCode(data);
+            defineNotification();
+            message('FATAL ERROR',data,'br','#FFF','error','60000');
             return false;
         }
 		if(json.data.user == false){ location.reload(); }
@@ -5424,6 +5884,7 @@ function launch(){
 			branch:json.branch,
 			sso:json.sso,
 			settings:json.settings,
+            appearance:json.appearance,
 			theme:json.theme,
 			style:json.style,
 			version:json.version

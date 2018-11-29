@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
@@ -11,7 +11,7 @@ use Dibi;
 
 
 /**
- * The dibi driver for PostgreSQL database.
+ * The driver for PostgreSQL database.
  *
  * Driver options:
  *   - host, hostaddr, port, dbname, user, password, connect_timeout, options, sslmode, service => see PostgreSQL API
@@ -20,7 +20,6 @@ use Dibi;
  *   - charset => character encoding to set (default is utf8)
  *   - persistent (bool) => try to find a persistent link?
  *   - resource (resource) => existing connection resource
- *   - lazy, profiler, result, substitutes, ... => see Dibi\Connection options
  */
 class PostgreDriver implements Dibi\Driver, Dibi\ResultDriver, Dibi\Reflector
 {
@@ -96,7 +95,7 @@ class PostgreDriver implements Dibi\Driver, Dibi\ResultDriver, Dibi\Reflector
 		pg_set_error_verbosity($this->connection, PGSQL_ERRORS_VERBOSE);
 
 		if (isset($config['charset']) && pg_set_client_encoding($this->connection, $config['charset'])) {
-			throw self::createException(pg_last_error($this->connection));
+			throw static::createException(pg_last_error($this->connection));
 		}
 
 		if (isset($config['schema'])) {
@@ -137,7 +136,7 @@ class PostgreDriver implements Dibi\Driver, Dibi\ResultDriver, Dibi\Reflector
 		$res = @pg_query($this->connection, $sql); // intentionally @
 
 		if ($res === false) {
-			throw self::createException(pg_last_error($this->connection), null, $sql);
+			throw static::createException(pg_last_error($this->connection), null, $sql);
 
 		} elseif (is_resource($res)) {
 			$this->affectedRows = pg_affected_rows($res);
@@ -429,7 +428,9 @@ class PostgreDriver implements Dibi\Driver, Dibi\ResultDriver, Dibi\Reflector
 	 */
 	public function __destruct()
 	{
-		$this->autoFree && $this->getResultResource() && $this->free();
+		if ($this->autoFree && $this->getResultResource()) {
+			$this->free();
+		}
 	}
 
 
@@ -547,7 +548,7 @@ class PostgreDriver implements Dibi\Driver, Dibi\ResultDriver, Dibi\Reflector
 
 		$res = $this->query($query);
 		$tables = pg_fetch_all($res->resultSet);
-		return $tables ? $tables : [];
+		return $tables ?: [];
 	}
 
 

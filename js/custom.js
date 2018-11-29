@@ -4,10 +4,12 @@ var idleTime = 0;
 var hasCookie = false;
 $(document).ajaxComplete(function () {
     pageLoad();
+    //new SimpleBar($('.internal-listing')[0]);
 });
 $(document).ready(function () {
     pageLoad();
     var clipboard = new Clipboard('.clipboard');
+    var internalClipboard = new Clipboard('#internal-clipboard');
     clipboard.on('success', function(e) {
         message('Clipboard',e.text,activeInfo.settings.notifications.position,'#FFF','info','5000');
         e.clearSelection();
@@ -55,6 +57,8 @@ $(document).ready(function () {
             }
             if (height > topOffset) {
                 $("#page-wrapper").css("min-height", (height) + "px");
+                //$("#page-wrapper").css("max-height", (height) + "px");
+
             }
         },
         url = window.location,
@@ -144,7 +148,9 @@ function pageLoad(){
     /* ===== Tooltip Initialization ===== */
 
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip();
+        if(bowser.mobile !== true) {
+            $('[data-toggle="tooltip"]').tooltip();
+        }
         /*$('body').tooltip({
             selector: '[data-toggle="tooltip"]'
         });*/
@@ -356,7 +362,9 @@ $(document).on("click", ".login-button", function(e) {
             console.error('Organizr Function: Login failed');
         }
     }).fail(function(xhr) {
-        console.error("Organizr Function: Login Failed");
+        $('div.login-box').unblock({});
+        message('Login Error','API Connection Failed',activeInfo.settings.notifications.position,'#FFF','warning','10000');
+        console.error("Organizr Function: API Connection Failed");
     });
 });
 $(document).on("click", ".unlockButton", function(e) {
@@ -762,6 +770,24 @@ $(document).on("change", ".pingSwitch", function () {
     callbacks.add( buildTabEditor );
     settingsAPI(post,callbacks);
 });
+// CHANGE PRELOAD TAB
+$(document).on("change", ".preloadSwitch", function () {
+    //Create POST Array
+    var post = {
+        action:'changePreload',
+        api:'api/?v1/settings/tab/editor/tabs',
+        id:$(this).parent().parent().attr("data-id"),
+        tab:$(this).parent().parent().attr("data-name"),
+        tabPreload:$(this).prop("checked") ? 1 : 0,
+        tabPreloadWord:$(this).prop("checked") ? "On" : "Off",
+        messageTitle:'',
+        messageBody:'Tab Info updated for '+$(this).parent().parent().attr("data-name"),
+        error:'Organizr Function: Tab API Connection Failed'
+    };
+    var callbacks = $.Callbacks();
+    callbacks.add( buildTabEditor );
+    settingsAPI(post,callbacks);
+});
 // CHANGE DEFAULT TAB
 $(document).on("change", ".defaultSwitch", function () {
     //Create POST Array
@@ -812,6 +838,7 @@ $(document).on("click", ".deleteTab", function () {
 $(document).on("click", ".editTabButton", function () {
     $('#edit-tab-form [name=tabName]').val($(this).parent().parent().attr("data-name"));
     $('#edit-tab-form [name=tabURL]').val($(this).parent().parent().attr("data-url"));
+    $('#edit-tab-form [name=tabLocalURL]').val($(this).parent().parent().attr("data-local-url"));
     $('#edit-tab-form [name=pingURL]').val($(this).parent().parent().attr("data-ping-url"));
     $('#edit-tab-form [name=tabImage]').val($(this).parent().parent().attr("data-image"));
     $('#edit-tab-form [name=id]').val($(this).parent().parent().attr("data-id"));
@@ -831,6 +858,7 @@ $(document).on("click", ".editTab", function () {
         tabName:$('#edit-tab-form [name=tabName]').val(),
         tabImage:$('#edit-tab-form [name=tabImage]').val(),
         tabURL:$('#edit-tab-form [name=tabURL]').val(),
+        tabLocalURL:$('#edit-tab-form [name=tabLocalURL]').val(),
         pingURL:$('#edit-tab-form [name=pingURL]').val(),
         messageTitle:'',
         messageBody:'Edited Tab '+$('#edit-tab-form [name=tabName]').val(),
@@ -845,10 +873,10 @@ $(document).on("click", ".editTab", function () {
     if (typeof post.tabImage == 'undefined' || post.tabImage == '') {
         message('Edit Tab Error',' Please set a Tab Image',activeInfo.settings.notifications.position,'#FFF','warning','5000');
     }
-    if (typeof post.tabURL == 'undefined' || post.tabURL == '') {
-        message('Edit Tab Error',' Please set a Tab URL',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+    if ((typeof post.tabURL == 'undefined' || post.tabURL == '') && (typeof post.tabLocalURL == 'undefined' || post.tabLocalURL == '')) {
+        message('Edit Tab Error',' Please set a Tab URL or Local URL',activeInfo.settings.notifications.position,'#FFF','warning','5000');
     }
-    if(post.id !== '' && post.tabName !== '' && post.tabImage !== '' && post.tabURL !== '' ){
+    if(post.id !== '' && post.tabName !== '' && post.tabImage !== ''){
         var callbacks = $.Callbacks();
         callbacks.add( buildTabEditor );
         settingsAPI(post,callbacks);
@@ -866,13 +894,14 @@ $(document).on("click", ".addNewTab", function () {
         tabName:$('#new-tab-form [name=tabName]').val(),
         tabImage:$('#new-tab-form [name=tabImage]').val(),
         tabURL:$('#new-tab-form [name=tabURL]').val(),
+        tabLocalURL:$('#new-tab-form [name=tabLocalURL]').val(),
         pingURL:$('#new-tab-form [name=pingURL]').val(),
         tabGroupID:1,
         tabEnabled:0,
         tabDefault:0,
         tabType:1,
-        messageTitle:'',
-        messageBody:'Created Tab '+$('#new-tab-form [name=tabName]').val(),
+        messageTitle:'Created Tab '+$('#new-tab-form [name=tabName]').val(),
+        messageBody:'Please <a href="javascript(\'window.location.reload(false);\');">RELOAD</a> page to update',
         error:'Organizr Function: Tab API Connection Failed'
     };
     if (typeof post.tabOrder == 'undefined' || post.tabOrder == '') {
@@ -881,13 +910,13 @@ $(document).on("click", ".addNewTab", function () {
     if (typeof post.tabName == 'undefined' || post.tabName == '') {
         message('New Tab Error',' Please set a Tab Name',activeInfo.settings.notifications.position,'#FFF','error','5000');
     }
-    if (typeof post.tabURL == 'undefined' || post.tabURL == '') {
-        message('New Tab Error',' Please set a Tab URL',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+    if ((typeof post.tabURL == 'undefined' || post.tabURL == '') && (typeof post.tabLocalURL == 'undefined' || post.tabLocalURL == '')) {
+        message('New Tab Error',' Please set a Tab URL or Local URL',activeInfo.settings.notifications.position,'#FFF','warning','5000');
     }
     if (typeof post.tabImage == 'undefined' || post.tabImage == '') {
         message('New Tab Error',' Please set a Tab Image',activeInfo.settings.notifications.position,'#FFF','warning','5000');
     }
-    if(post.tabOrder !== '' && post.tabName !== '' && post.tabURL !== '' && post.tabImage !== '' ){
+    if(post.tabOrder !== '' && post.tabName !== '' && (post.tabURL !== '' || post.tabLocalURL !== '') && post.tabImage !== '' ){
         var callbacks = $.Callbacks();
         callbacks.add( buildTabEditor );
         settingsAPI(post,callbacks);
@@ -1715,6 +1744,7 @@ Mousetrap.bind("c c", function() { closeCurrentTab() });
 Mousetrap.bind("s s", function() { openSettings() });
 Mousetrap.bind("h h", function() { openHomepage() });
 Mousetrap.bind("f f", function() { toggleFullScreen() });
+Mousetrap.bind("d d", function() { toggleDebug() });
 Mousetrap.bind("esc", function () {
     $('.splash-screen').removeClass('in').addClass('hidden')
 });
@@ -1750,4 +1780,60 @@ $(document).on('change', "#choose-calender-filter, #choose-calender-filter-statu
     console.log("Calendar Filter: "+filterDownload);
     $('#calendar').fullCalendar('rerenderEvents');
     new SimpleBar($('.fc-scroller')[0]);
+});
+$('#debug-input').keyup(function(e){
+    if(e.keyCode == 13) {
+        orgDebug();
+    }
+});
+// settings menu open if not open
+$(document).on('click', ".sticon", function(){
+    var target = $(this).attr('href');
+    var menu = $(target).find('.customtab2 > li');
+    if(menu.length !== 0){
+        var isActive = false;
+        $(menu).each(function (index, value) {
+            var hasClass = $(this).hasClass('active');
+            if(hasClass){
+                isActive = true;
+            }
+        });
+        if(isActive == false){
+            let el = $(menu).find('a').first();
+            $(el).trigger('click');
+        }
+    }
+});
+// open help modal
+$(document).on('click', ".help-modal", function(){
+    var type = $(this).attr('data-modal');
+    var title = '';
+    var body = '';
+    //clear modal first
+    $('#help-modal-title').html('');
+    $('#help-modal-body').html('');
+    //alter info
+    switch (type) {
+        case 'tabs':
+            title = 'Tab Help';
+            var items = [
+                {title:"Name", body:"The text that will be displayed for that certain tab"},
+                {title:"Category", body:"Each Tab is assigned a Category, the default is unsorted.  You may create new categories on the Category settings tab"},
+                {title:"Group", body:"The lowest Group that will have access to this tab"},
+                {title:"Type", body:"Internal is for Organizr pages<br/>iFrame is for all others<br/>New Window is for items to open in a new window"},
+                {title:"Default", body:"You can choose one tab to be the first opened tab on page load"},
+                {title:"Active", body:"Either mark a tab as active or inactive"},
+                {title:"Splash", body:"Toggle this to add the tab to the Splash Page on page load"},
+                {title:"Ping", body:"Enable Organizr to ping the status of the local URL of this tab"},
+                {title:"Preload", body:"Toggle this tab to loaded in the background on page load"},
+            ];
+            body = buildAccordion(items);
+            break;
+        default:
+            return null;
+        
+    }
+    $('#help-modal-title').html(title);
+    $('#help-modal-body').html(body);
+    $('.help-modal-lg').modal('show');
 });

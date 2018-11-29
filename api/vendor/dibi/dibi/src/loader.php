@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
@@ -17,27 +17,30 @@ spl_autoload_register(function ($class) {
 		'Dibi\Bridges\Nette\DibiExtension22' => 'Bridges/Nette/DibiExtension22.php',
 		'Dibi\Bridges\Tracy\Panel' => 'Bridges/Tracy/Panel.php',
 		'Dibi\Connection' => 'Connection.php',
+		'Dibi\ConstraintViolationException' => 'exceptions.php',
 		'Dibi\DataSource' => 'DataSource.php',
 		'Dibi\DateTime' => 'DateTime.php',
 		'Dibi\Driver' => 'interfaces.php',
 		'Dibi\DriverException' => 'exceptions.php',
 		'Dibi\Drivers\FirebirdDriver' => 'Drivers/FirebirdDriver.php',
-		'Dibi\Drivers\SqlsrvDriver' => 'Drivers/SqlsrvDriver.php',
-		'Dibi\Drivers\SqlsrvReflector' => 'Drivers/SqlsrvReflector.php',
 		'Dibi\Drivers\MsSqlDriver' => 'Drivers/MsSqlDriver.php',
 		'Dibi\Drivers\MsSqlReflector' => 'Drivers/MsSqlReflector.php',
 		'Dibi\Drivers\MySqlDriver' => 'Drivers/MySqlDriver.php',
-		'Dibi\Drivers\MySqliDriver' => 'Drivers/MySqliDriver.php',
 		'Dibi\Drivers\MySqlReflector' => 'Drivers/MySqlReflector.php',
+		'Dibi\Drivers\MySqliDriver' => 'Drivers/MySqliDriver.php',
 		'Dibi\Drivers\OdbcDriver' => 'Drivers/OdbcDriver.php',
 		'Dibi\Drivers\OracleDriver' => 'Drivers/OracleDriver.php',
 		'Dibi\Drivers\PdoDriver' => 'Drivers/PdoDriver.php',
 		'Dibi\Drivers\PostgreDriver' => 'Drivers/PostgreDriver.php',
 		'Dibi\Drivers\Sqlite3Driver' => 'Drivers/Sqlite3Driver.php',
 		'Dibi\Drivers\SqliteReflector' => 'Drivers/SqliteReflector.php',
+		'Dibi\Drivers\SqlsrvDriver' => 'Drivers/SqlsrvDriver.php',
+		'Dibi\Drivers\SqlsrvReflector' => 'Drivers/SqlsrvReflector.php',
 		'Dibi\Event' => 'Event.php',
 		'Dibi\Exception' => 'exceptions.php',
+		'Dibi\Expression' => 'Expression.php',
 		'Dibi\Fluent' => 'Fluent.php',
+		'Dibi\ForeignKeyConstraintViolationException' => 'exceptions.php',
 		'Dibi\HashMap' => 'HashMap.php',
 		'Dibi\HashMapBase' => 'HashMap.php',
 		'Dibi\Helpers' => 'Helpers.php',
@@ -46,6 +49,7 @@ spl_autoload_register(function ($class) {
 		'Dibi\Loggers\FileLogger' => 'Loggers/FileLogger.php',
 		'Dibi\Loggers\FirePhpLogger' => 'Loggers/FirePhpLogger.php',
 		'Dibi\NotImplementedException' => 'exceptions.php',
+		'Dibi\NotNullConstraintViolationException' => 'exceptions.php',
 		'Dibi\NotSupportedException' => 'exceptions.php',
 		'Dibi\PcreException' => 'exceptions.php',
 		'Dibi\ProcedureException' => 'exceptions.php',
@@ -63,8 +67,8 @@ spl_autoload_register(function ($class) {
 		'Dibi\Strict' => 'Strict.php',
 		'Dibi\Translator' => 'Translator.php',
 		'Dibi\Type' => 'Type.php',
+		'Dibi\UniqueConstraintViolationException' => 'exceptions.php',
 	], $old2new = [
-		'Dibi' => 'dibi.php',
 		'DibiColumnInfo' => 'Dibi\Reflection\Column',
 		'DibiConnection' => 'Dibi\Connection',
 		'DibiDatabaseInfo' => 'Dibi\Reflection\Database',
@@ -115,26 +119,9 @@ spl_autoload_register(function ($class) {
 	if (isset($map[$class])) {
 		require __DIR__ . '/Dibi/' . $map[$class];
 	} elseif (isset($old2new[$class])) {
+		$trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+		$location = isset($trace[1]['file']) ? 'used in ' . $trace[1]['file'] . ':' . $trace[1]['line'] : '';
+		trigger_error("Class $class $location has been renamed to {$old2new[$class]}.", E_USER_DEPRECATED);
 		class_alias($old2new[$class], $class);
 	}
 });
-
-
-// preload for compatiblity
-array_map('class_exists', [
-	'DibiConnection',
-	'DibiDateTime',
-	'DibiDriverException',
-	'DibiEvent',
-	'DibiException',
-	'DibiFluent',
-	'DibiLiteral',
-	'DibiNotImplementedException',
-	'DibiNotSupportedException',
-	'DibiPcreException',
-	'DibiProcedureException',
-	'DibiResult',
-	'DibiRow',
-	'IDataSource',
-	'IDibiDriver',
-]);

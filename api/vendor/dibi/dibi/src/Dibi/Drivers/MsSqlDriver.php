@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
@@ -11,7 +11,7 @@ use Dibi;
 
 
 /**
- * The dibi driver for MS SQL database.
+ * The driver for MS SQL database.
  *
  * Driver options:
  *   - host => the MS SQL server host name. It can also include a port number (hostname:port)
@@ -263,7 +263,7 @@ class MsSqlDriver implements Dibi\Driver, Dibi\ResultDriver
 		if (!$value instanceof \DateTime && !$value instanceof \DateTimeInterface) {
 			$value = new Dibi\DateTime($value);
 		}
-		return $value->format("'Y-m-d H:i:s.u'");
+		return 'CONVERT(DATETIME2(7), ' . $value->format("'Y-m-d H:i:s.u'") . ')';
 	}
 
 
@@ -329,7 +329,9 @@ class MsSqlDriver implements Dibi\Driver, Dibi\ResultDriver
 	 */
 	public function __destruct()
 	{
-		$this->autoFree && $this->getResultResource() && $this->free();
+		if ($this->autoFree && $this->getResultResource()) {
+			$this->free();
+		}
 	}
 
 

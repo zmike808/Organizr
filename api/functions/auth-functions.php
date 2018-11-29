@@ -1,9 +1,10 @@
 <?php
-function authRegister($username, $password, $defaults, $email)
+function authRegister($username, $password, $defaults, $email, $token = null)
 {
-    if ($GLOBALS['authBackend'] !== '') {
-        ombiImport($GLOBALS['authBackend']);
-    }
+	if ($GLOBALS['authBackend'] !== '') {
+		ombiImport($GLOBALS['authBackend']);
+	}
+	ssoCheck($username, $password, $token);
 	if (createUser($username, $password, $defaults, $email)) {
 		writeLog('success', 'Registration Function - A User has registered', $username);
 		if ($GLOBALS['PHPMAILER-enabled']) {
@@ -24,7 +25,7 @@ function authRegister($username, $password, $defaults, $email)
 			);
 			phpmSendEmail($sendEmail);
 		}
-		if (createToken($username, $email, gravatar($email), $defaults['group'], $defaults['group_id'], $GLOBALS['organizrHash'], 7)) {
+		if (createToken($username, $email, gravatar($email), $defaults['group'], $defaults['group_id'], $GLOBALS['organizrHash'], $GLOBALS['rememberMeDays'])) {
 			writeLoginLog($username, 'success');
 			writeLog('success', 'Login Function - A User has logged in', $username);
 			return true;
@@ -36,11 +37,35 @@ function authRegister($username, $password, $defaults, $email)
 	return false;
 }
 
+function checkPlexToken($token = '')
+{
+	try {
+		if (($token !== '')) {
+			$url = 'https://plex.tv/users/account.json';
+			$headers = array(
+				'X-Plex-Token' => $token,
+				'Content-Type' => 'application/json',
+				'Accept' => 'application/json'
+			);
+			$response = Requests::get($url, $headers);
+			if ($response->success) {
+				return json_decode($response->body, true);
+			}
+		} else {
+			return false;
+		}
+		
+	} catch (Requests_Exception $e) {
+		writeLog('success', 'Plex Token Check Function - Error: ' . $e->getMessage(), SYSTEM);
+	}
+	return false;
+}
+
 function checkPlexUser($username)
 {
 	try {
 		if (!empty($GLOBALS['plexToken'])) {
-			$url = 'https://plex.tv/pms/friends/all';
+			$url = 'https://plex.tv/api/users';
 			$headers = array(
 				'X-Plex-Token' => $GLOBALS['plexToken'],
 			);
@@ -52,7 +77,19 @@ function checkPlexUser($username)
 					$usernameLower = strtolower($username);
 					foreach ($userXML as $child) {
 						if (isset($child['username']) && strtolower($child['username']) == $usernameLower || isset($child['email']) && strtolower($child['email']) == $usernameLower) {
-							return true;
+							writeLog('success', 'Plex User Check - Found User on Friends List', $username);
+							$machineMatches = false;
+							foreach ($child->Server as $server) {
+								if ((string)$server['machineIdentifier'] == $GLOBALS['plexID']) {
+									$machineMatches = true;
+								}
+								if ($machineMatches) {
+									writeLog('success', 'Plex User Check - User Approved for Login', $username);
+									return true;
+								} else {
+									writeLog('error', 'Plex User Check - User not Approved User', $username);
+								}
+							}
 						}
 					}
 				}
@@ -60,7 +97,51 @@ function checkPlexUser($username)
 		}
 		return false;
 	} catch (Requests_Exception $e) {
-		writeLog('success', 'Plex User Check Function - Error: ' . $e->getMessage(), $username);
+		writeLog('error', 'Plex User Check Function - Error: ' . $e->getMessage(), $username);
+	}
+	return false;
+}
+
+function allPlexUsers($newOnly = false)
+{
+	try {
+		if (!empty($GLOBALS['plexToken'])) {
+			$url = 'https://plex.tv/api/users';
+			$headers = array(
+				'X-Plex-Token' => $GLOBALS['plexToken'],
+			);
+			$response = Requests::get($url, $headers);
+			if ($response->success) {
+				libxml_use_internal_errors(true);
+				$userXML = simplexml_load_string($response->body);
+				if (is_array($userXML) || is_object($userXML)) {
+					$results = array();
+					foreach ($userXML as $child) {
+						if (((string)$child['restricted'] == '0')) {
+							if ($newOnly) {
+								$taken = usernameTaken((string)$child['username'], (string)$child['email']);
+								if (!$taken) {
+									$results[] = array(
+										'username' => (string)$child['username'],
+										'email' => (string)$child['email']
+									);
+								}
+							} else {
+								$results[] = array(
+									'username' => (string)$child['username'],
+									'email' => (string)$child['email'],
+								);
+							}
+							
+						}
+					}
+					return $results;
+				}
+			}
+		}
+		return false;
+	} catch (Requests_Exception $e) {
+		writeLog('success', 'Plex User Function - Error: ' . $e->getMessage(), $username);
 	}
 	return false;
 }
@@ -77,7 +158,7 @@ function plugin_auth_plex($username, $password)
 				'Content-Type' => 'application/x-www-form-urlencoded',
 				'X-Plex-Product' => 'Organizr',
 				'X-Plex-Version' => '2.0',
-				'X-Plex-Client-Identifier' => '01010101-10101010',
+				'X-Plex-Client-Identifier' => $GLOBALS['uuid'],
 			);
 			$data = array(
 				'user[login]' => $username,

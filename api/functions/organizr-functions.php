@@ -27,23 +27,35 @@ function organizrSpecialSettings()
 			)
 		),
 		'sso' => array(
+			'misc' => array(
+				'oAuthLogin' => isset($_COOKIE['oAuth']) ? true : false,
+				'rememberMe' => $GLOBALS['rememberMe'],
+				'rememberMeDays' => $GLOBALS['rememberMeDays']
+			),
 			'plex' => array(
 				'enabled' => ($GLOBALS['ssoPlex']) ? true : false,
 				'cookie' => isset($_COOKIE['mpt']) ? true : false,
 				'machineID' => $GLOBALS['plexID'],
+				'token' => ($GLOBALS['plexToken'] !== '') ? true : false,
+				'oAuthEnabled' => ($GLOBALS['plexoAuth']) ? true : false,
+				'backend' => ($GLOBALS['authBackend'] == 'plex') ? true : false,
 			),
 			'ombi' => array(
 				'enabled' => ($GLOBALS['ssoOmbi']) ? true : false,
 				'cookie' => isset($_COOKIE['Auth']) ? true : false,
+				'url' => ($GLOBALS['ombiURL'] !== '') ? true : false,
+				'api' => ($GLOBALS['ombiToken'] !== '') ? true : false,
 			),
 			'tautulli' => array(
 				'enabled' => ($GLOBALS['ssoTautulli']) ? true : false,
 				'cookie' => !empty($tautulli) ? true : false,
+				'url' => ($GLOBALS['tautulliURL'] !== '') ? true : false,
 			),
 		),
 		'ping' => array(
 			'onlineSound' => $GLOBALS['pingOnlineSound'],
 			'offlineSound' => $GLOBALS['pingOfflineSound'],
+			'statusSounds' => $GLOBALS['statusSounds'],
 			'auth' => $GLOBALS['pingAuth'],
 			'authMessage' => $GLOBALS['pingAuthMessage'],
 			'authMs' => $GLOBALS['pingAuthMs'],
@@ -63,6 +75,12 @@ function organizrSpecialSettings()
 		),
 		'user' => array(
 			'agent' => isset($_SERVER ['HTTP_USER_AGENT']) ? $_SERVER ['HTTP_USER_AGENT'] : null,
+			'oAuthLogin' => isset($_COOKIE['oAuth']) ? true : false,
+			'local' => (isLocal()) ? true : false
+		),
+		'login' => array(
+			'rememberMe' => $GLOBALS['rememberMe'],
+			'rememberMeDays' => $GLOBALS['rememberMeDays'],
 		),
 		'misc' => array(
 			'installedPlugins' => $GLOBALS['installedPlugins'],
@@ -72,7 +90,8 @@ function organizrSpecialSettings()
 			'minimalLoginScreen' => $GLOBALS['minimalLoginScreen'],
 			'unsortedTabs' => $GLOBALS['unsortedTabs'],
 			'authBackend' => $GLOBALS['authBackend'],
-			'newMessageSound' => $GLOBALS['CHAT-newMessageSound-include'],
+			'newMessageSound' => (isset($GLOBALS['CHAT-newMessageSound-include'])) ? $GLOBALS['CHAT-newMessageSound-include'] : '',
+			'uuid' => $GLOBALS['uuid'],
 		)
 	);
 }
@@ -93,7 +112,7 @@ function wizardConfig($array)
 		}
 	}
 	$location = cleanDirectory($location);
-	$dbName = $dbName . '.db';
+	$dbName = dbExtension($dbName);
 	$configVersion = $GLOBALS['installedVersion'];
 	$configArray = array(
 		'dbName' => $dbName,
@@ -149,7 +168,7 @@ function register($array)
 		writeLog('success', 'Registration Function - Registration Password Verified', $username);
 		if (createUser($username, $password, $defaults, $email)) {
 			writeLog('success', 'Registration Function - A User has registered', $username);
-			if (createToken($username, $email, gravatar($email), $defaults['group'], $defaults['group_id'], $GLOBALS['organizrHash'], 1)) {
+			if (createToken($username, $email, gravatar($email), $defaults['group'], $defaults['group_id'], $GLOBALS['organizrHash'], $GLOBALS['rememberMeDays'])) {
 				writeLoginLog($username, 'success');
 				writeLog('success', 'Login Function - A User has logged in', $username);
 				return true;
@@ -293,6 +312,7 @@ function editUser($array)
                 UPDATE users SET', [
 				'username' => $array['data']['username'],
 				'email' => $array['data']['email'],
+				'image' => gravatar($array['data']['email']),
 			], '
                 WHERE id=?', $GLOBALS['organizrUser']['userID']);
 			if (!empty($array['data']['password'])) {
@@ -313,11 +333,22 @@ function editUser($array)
 	}
 }
 
+function clearTautulliTokens()
+{
+	foreach (array_keys($_COOKIE) as $k => $v) {
+		if (strpos($v, 'tautulli') !== false) {
+			coookie('delete', $v);
+		}
+	}
+}
+
 function logout()
 {
 	coookie('delete', $GLOBALS['cookieName']);
 	coookie('delete', 'mpt');
 	coookie('delete', 'Auth');
+	coookie('delete', 'oAuth');
+	clearTautulliTokens();
 	revokeToken(array('data' => array('token' => $GLOBALS['organizrUser']['token'])));
 	$GLOBALS['organizrUser'] = false;
 	return true;
@@ -325,7 +356,7 @@ function logout()
 
 function qualifyRequest($accessLevelNeeded)
 {
-	if (getUserLevel() <= $accessLevelNeeded) {
+	if (getUserLevel() <= $accessLevelNeeded && getUserLevel() !== null) {
 		return true;
 	} else {
 		return false;
@@ -474,6 +505,13 @@ function getSettingsMain()
 				'attr' => 'data-effect="mfp-3d-unfold"'
 			),
 			array(
+				'type' => 'switch',
+				'name' => 'plexoAuth',
+				'label' => 'Enable Plex oAuth',
+				'class' => 'popup-with-form plexAuth switchAuth',
+				'value' => $GLOBALS['plexoAuth']
+			),
+			array(
 				'type' => 'input',
 				'name' => 'authBackendHost',
 				'class' => 'ldapAuth ftpAuth switchAuth',
@@ -522,12 +560,6 @@ function getSettingsMain()
 				'placeholder' => ''
 			),
 			array(
-				'type' => 'switch',
-				'name' => 'lockoutSystem',
-				'label' => 'Inactivity Lock',
-				'value' => $GLOBALS['lockoutSystem']
-			),
-			array(
 				'type' => 'select',
 				'name' => 'lockoutMinAuth',
 				'label' => 'Lockout Groups From',
@@ -542,6 +574,22 @@ function getSettingsMain()
 				'options' => groupSelect()
 			),
 			array(
+				'type' => 'switch',
+				'name' => 'lockoutSystem',
+				'label' => 'Inactivity Lock',
+				'value' => $GLOBALS['lockoutSystem']
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'authDebug',
+				'label' => 'Nginx Auth Debug',
+				'help' => 'Important! Do not keep this enabled for too long as this opens up Authentication while testing.',
+				'value' => $GLOBALS['authDebug'],
+				'class' => 'authDebug'
+			)
+		),
+		'Login' => array(
+			array(
 				'type' => 'password-alt',
 				'name' => 'registrationPassword',
 				'label' => 'Registration Password',
@@ -554,13 +602,21 @@ function getSettingsMain()
 				'value' => $GLOBALS['hideRegistration'],
 			),
 			array(
+				'type' => 'number',
+				'name' => 'rememberMeDays',
+				'label' => 'Remember Me Length',
+				'help' => 'Number of days cookies and tokens will be valid for',
+				'value' => $GLOBALS['rememberMeDays'],
+				'placeholder' => '',
+				'attr' => 'min="1"'
+			),
+			array(
 				'type' => 'switch',
-				'name' => 'authDebug',
-				'label' => 'Nginx Auth Debug',
-				'help' => 'Important! Do not keep this enabled for too long as this opens up Authentication while testing.',
-				'value' => $GLOBALS['authDebug'],
-				'class' => 'authDebug'
-			)
+				'name' => 'rememberMe',
+				'label' => 'Remember Me',
+				'help' => 'Default status of Remember Me button on login screen',
+				'value' => $GLOBALS['rememberMe'],
+			),
 		),
 		'Ping' => array(
 			array(
@@ -596,6 +652,13 @@ function getSettingsMain()
 				'name' => 'pingMs',
 				'label' => 'Show Ping Time',
 				'value' => $GLOBALS['pingMs']
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'statusSounds',
+				'label' => 'Enable Notify Sounds',
+				'value' => $GLOBALS['statusSounds'],
+				'help' => 'Will play a sound if the server goes down and will play sound if comes back up.',
 			),
 			array(
 				'type' => 'select',
@@ -711,6 +774,12 @@ function getSSO()
 				'label' => 'Ombi URL',
 				'value' => $GLOBALS['ombiURL'],
 				'placeholder' => 'http(s)://hostname:port'
+			),
+			array(
+				'type' => 'password-alt',
+				'name' => 'ombiToken',
+				'label' => 'Token',
+				'value' => $GLOBALS['ombiToken']
 			),
 			array(
 				'type' => 'switch',
@@ -1017,12 +1086,12 @@ function getCustomizeAppearance()
 						<div class="panel-wrapper collapse in">
 							<div class="panel-body">
 								<ul class="list-icons">
-									<li lang="en"><i class="fa fa-caret-right text-info"></i> Click "Select your Favicon picture"</li>
+									<li lang="en"><i class="fa fa-caret-right text-info"></i> Click [Select your Favicon picture]</li>
 									<li lang="en"><i class="fa fa-caret-right text-info"></i> Choose your image to use</li>
 									<li lang="en"><i class="fa fa-caret-right text-info"></i> Edit settings to your liking</li>
-									<li lang="en"><i class="fa fa-caret-right text-info"></i> At bottom of page on "Favicon Generator Options" under "Path" choose "I cannot or I do not want to place favicon files at the root of my web site."</li>
+									<li lang="en"><i class="fa fa-caret-right text-info"></i> At bottom of page on [Favicon Generator Options] under [Path] choose [I cannot or I do not want to place favicon files at the root of my web site.]</li>
 									<li lang="en"><i class="fa fa-caret-right text-info"></i> Enter this path <code>plugins/images/faviconCustom</code></li>
-									<li lang="en"><i class="fa fa-caret-right text-info"></i> Click "Generate your Favicons and HTML code"</li>
+									<li lang="en"><i class="fa fa-caret-right text-info"></i> Click [Generate your Favicons and HTML code]</li>
 									<li lang="en"><i class="fa fa-caret-right text-info"></i> Download and unzip file and place in <code>plugins/images/faviconCustom</code></li>
 									<li lang="en"><i class="fa fa-caret-right text-info"></i> Copy code and paste inside left box</li>
 								</ul>
@@ -1151,7 +1220,7 @@ function updateConfigMultipleForm($array)
 		}
 		// Hash
 		if ($v['type'] == 'password') {
-			if (strpos($v['value'], '==') !== false) {
+			if (isEncrypted($v['value']) || $v['value'] == '') {
 				$v['value'] = $v['value'];
 			} else {
 				$v['value'] = encrypt($v['value']);
@@ -1277,6 +1346,21 @@ function showLogin()
 	if ($GLOBALS['hideRegistration'] == false) {
 		return '<p><span lang="en">Don\'t have an account?</span><a href="#" class="text-primary m-l-5 to-register"><b lang="en">Sign Up</b></a></p>';
 	}
+}
+
+function showoAuth()
+{
+	$buttons = '';
+	if ($GLOBALS['plexoAuth']) {
+		$buttons .= '<a href="javascript:void(0)" onclick="oAuthStart(\'plex\')" class="btn btn-lg btn-block text-uppercase waves-effect waves-light bg-plex text-muted" data-toggle="tooltip" title="" data-original-title="Login with Plex"> <span>Login with Plex Account</span><i aria-hidden="true" class="mdi mdi-plex m-l-5"></i> </a>';
+	}
+	return ($buttons) ? '
+		<div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-12 m-t-10 text-center">
+                <div class="social">' . $buttons . '</div>
+            </div>
+        </div>
+	' : '';
 }
 
 function getImages()
@@ -1520,7 +1604,7 @@ function cacheImage($url, $name)
 		mkdir($cacheDirectory, 0777, true);
 	}
 	$cachefile = $cacheDirectory . $name . '.jpg';
-	copy($url, $cachefile);
+	@copy($url, $cachefile);
 }
 
 function downloader($array)
@@ -1728,7 +1812,7 @@ function plexJoin($username, $email, $password)
 			'Content-Type' => 'application/x-www-form-urlencoded',
 			'X-Plex-Product' => 'Organizr',
 			'X-Plex-Version' => '2.0',
-			'X-Plex-Client-Identifier' => '01010101-10101010',
+			'X-Plex-Client-Identifier' => $GLOBALS['uuid'],
 		);
 		$data = array(
 			'user[email]' => $email,
@@ -1853,4 +1937,19 @@ function guestHash($start, $end)
 	$ip = $_SERVER['REMOTE_ADDR'];
 	$ip = md5($ip);
 	return substr($ip, $start, $end);
+}
+
+function importUserButtons()
+{
+	$emptyButtons = '
+		<div class="col-md-12">
+            <div class="white-box bg-org">
+                <h3 class="box-title m-0" lang="en">Currently User import is available for Plex only.</h3> </div>
+        </div>
+	';
+	$buttons = '';
+	if (!empty($GLOBALS['plexToken'])) {
+		$buttons .= '<button class="btn bg-plex text-muted waves-effect waves-light importUsersButton" onclick="importUsers(\'plex\')" type="button"><span class="btn-label"><i class="mdi mdi-plex"></i></span><span lang="en">Import Plex Users</span></button>';
+	}
+	return ($buttons !== '') ? $buttons : $emptyButtons;
 }

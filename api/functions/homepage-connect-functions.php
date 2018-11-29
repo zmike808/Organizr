@@ -39,6 +39,9 @@ function homepageConnect($array)
 		case 'getqBittorrent':
 			return qBittorrentConnect();
 			break;
+		case 'getrTorrent':
+			return rTorrentConnect();
+			break;
 		case 'getDeluge':
 			return delugeConnect();
 			break;
@@ -190,7 +193,7 @@ function resolveEmbyItem($itemDetails)
 	$embyItem['user'] = ($GLOBALS['homepageShowStreamNames'] && qualifyRequest($GLOBALS['homepageShowStreamNamesAuth'])) ? @(string)$itemDetails['UserName'] : "";
 	$embyItem['userThumb'] = '';
 	$embyItem['userAddress'] = (isset($itemDetails['RemoteEndPoint']) ? $itemDetails['RemoteEndPoint'] : "x.x.x.x");
-	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/itemdetails.html?id=" . $embyItem['uid'] : "https://app.emby.media/itemdetails.html?id=" . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
+	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/itemdetails.html?id=" . $embyItem['uid'] : "https://app.emby.media/#!/itemdetails.html?id=" . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
 	$embyItem['nowPlayingOriginalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['nowPlayingImageType'] . '&img=' . $embyItem['nowPlayingThumb'] . '&height=' . $nowPlayingHeight . '&width=' . $nowPlayingWidth . '&key=' . $embyItem['nowPlayingKey'] . '$' . randString();
 	$embyItem['originalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['imageType'] . '&img=' . $embyItem['thumb'] . '&height=' . $height . '&width=' . $width . '&key=' . $embyItem['key'] . '$' . randString();
 	$embyItem['openTab'] = $GLOBALS['embyTabURL'] && $GLOBALS['embyTabName'] ? true : false;
@@ -481,9 +484,14 @@ function plexConnect($action, $key = null)
 	if ($GLOBALS['homepagePlexEnabled'] && !empty($GLOBALS['plexURL']) && !empty($GLOBALS['plexToken']) && !empty($GLOBALS['plexID'] && qualifyRequest($GLOBALS['homepagePlexAuth']))) {
 		$url = qualifyURL($GLOBALS['plexURL']);
 		$ignore = array();
+		$resolve = true;
 		switch ($action) {
 			case 'streams':
 				$url = $url . "/status/sessions?X-Plex-Token=" . $GLOBALS['plexToken'];
+				break;
+			case 'libraries':
+				$url = $url . "/library/sections?X-Plex-Token=" . $GLOBALS['plexToken'];
+				$resolve = false;
 				break;
 			case 'recent':
 				$url = $url . "/library/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&limit=" . $GLOBALS['homepageRecentLimit'];
@@ -514,7 +522,7 @@ function plexConnect($action, $key = null)
 						$items[] = resolvePlexItem($child);
 					}
 				}
-				$api['content'] = $items;
+				$api['content'] = ($resolve) ? $items : $plex;
 				$api['plexID'] = $GLOBALS['plexID'];
 				$api['showNames'] = true;
 				$api['group'] = '1';
@@ -653,7 +661,7 @@ function sabnzbdConnect()
 			writeLog('error', 'SabNZBd Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 		};
 		$url = qualifyURL($GLOBALS['sabnzbdURL']);
-		$url = $url . '/api?mode=history&output=json&apikey=' . $GLOBALS['sabnzbdToken'];
+		$url = $url . '/api?mode=history&output=json&limit=100&apikey=' . $GLOBALS['sabnzbdToken'];
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
 			$response = Requests::get($url, array(), $options);
@@ -766,6 +774,122 @@ function transmissionConnect()
 	return false;
 }
 
+function rTorrentStatus($completed, $state, $status)
+{
+	if ($completed && $state && $status == 'seed') {
+		$state = 'Seeding';
+	} elseif (!$completed && !$state && $status == 'leech') {
+		$state = 'Stopped';
+	} elseif (!$completed && $state && $status == 'leech') {
+		$state = 'Downloading';
+	} elseif ($completed && !$state && $status == 'seed') {
+		$state = 'Finished';
+	}
+	return ($state) ? $state : $status;
+}
+
+function rTorrentConnect()
+{
+	if ($GLOBALS['homepagerTorrentEnabled'] && !empty($GLOBALS['rTorrentURL']) && qualifyRequest($GLOBALS['homepagerTorrentAuth'])) {
+		try {
+			$torrents = array();
+			$digest = qualifyURL($GLOBALS['rTorrentURL'], true);
+			$passwordInclude = ($GLOBALS['rTorrentUsername'] != '' && $GLOBALS['rTorrentPassword'] != '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
+			$extraPath = (strpos($GLOBALS['rTorrentURL'], '.php') !== false) ? '' : '/RPC2';
+			$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
+			$options = (localURL($url)) ? array('verify' => false) : array();
+			$data = xmlrpc_encode_request("d.multicall2", array(
+				"",
+				"main",
+				"d.name=",
+				"d.base_path=",
+				"d.up.total=",
+				"d.size_bytes=",
+				"d.down.total=",
+				"d.completed_bytes=",
+				"d.connection_current=",
+				"d.down.rate=",
+				"d.up.rate=",
+				"d.timestamp.started=",
+				"d.state=",
+				"d.group.name=",
+				"d.hash=",
+				"d.complete=",
+				"d.ratio=",
+				"d.chunk_size=",
+				"f.size_bytes=",
+				"f.size_chunks=",
+				"f.completed_chunks=",
+				"d.custom=",
+				"d.custom1=",
+				"d.custom2=",
+				"d.custom3=",
+				"d.custom4=",
+				"d.custom5=",
+			), array());
+			$response = Requests::post($url, array(), $data, $options);
+			if ($response->success) {
+				$torrentList = xmlrpc_decode(str_replace('i8>', 'string>', $response->body));
+				foreach ($torrentList as $key => $value) {
+					$tempStatus = rTorrentStatus($value[13], $value[10], $value[6]);
+					if ($tempStatus == 'Seeding' && $GLOBALS['rTorrentHideSeeding']) {
+						//do nothing
+					} elseif ($tempStatus == 'Finished' && $GLOBALS['rTorrentHideCompleted']) {
+						//do nothing
+					} else {
+						$torrents[$key] = array(
+							'name' => $value[0],
+							'base' => $value[1],
+							'upTotal' => $value[2],
+							'size' => $value[3],
+							'downTotal' => $value[4],
+							'downloaded' => $value[5],
+							'connectionState' => $value[6],
+							'leech' => $value[7],
+							'seed' => $value[8],
+							'date' => $value[9],
+							'state' => ($value[10]) ? 'on' : 'off',
+							'group' => $value[11],
+							'hash' => $value[12],
+							'complete' => ($value[13]) ? 'yes' : 'no',
+							'ratio' => $value[14],
+							'label' => $value[20],
+							'status' => $tempStatus,
+							'temp' => $value[16] . ' - ' . $value[17] . ' - ' . $value[18],
+							'custom' => $value[19] . ' - ' . $value[20] . ' - ' . $value[21],
+							'custom2' => $value[22] . ' - ' . $value[23] . ' - ' . $value[24],
+						);
+					}
+				}
+				if (count($torrents) !== 0) {
+					usort($torrents, function ($a, $b) {
+						$direction = substr($GLOBALS['rTorrentSortOrder'], -1);
+						$sort = substr($GLOBALS['rTorrentSortOrder'], 0, strlen($GLOBALS['rTorrentSortOrder']) - 1);
+						switch ($direction) {
+							case 'a':
+								return $a[$sort] <=> $b[$sort];
+								break;
+							case 'd':
+								return $b[$sort] <=> $a[$sort];
+								break;
+							default:
+								return $b['date'] <=> $a['date'];
+						}
+					});
+				}
+				$api['content']['queueItems'] = $torrents;
+				$api['content']['historyItems'] = false;
+			}
+		} catch
+		(Requests_Exception $e) {
+			writeLog('error', 'rTorrent Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api['content'] = isset($api['content']) ? $api['content'] : false;
+		return $api;
+	}
+	return false;
+}
+
 function qBittorrentConnect()
 {
 	if ($GLOBALS['homepageqBittorrentEnabled'] && !empty($GLOBALS['qBittorrentURL']) && qualifyRequest($GLOBALS['homepageqBittorrentAuth'])) {
@@ -820,28 +944,33 @@ function qBittorrentConnect()
 	return false;
 }
 
+function delugeStatus($queued, $status, $state)
+{
+	if ($queued == '-1' && $state == '100' && ($status == 'Seeding' || $status == 'Queued' || $status == 'Paused')) {
+		$state = 'Seeding';
+	} elseif ($state !== '100') {
+		$state = 'Downloading';
+	} else {
+		$state = 'Finished';
+	}
+	return ($state) ? $state : $status;
+}
+
 function delugeConnect()
 {
 	if ($GLOBALS['homepageDelugeEnabled'] && !empty($GLOBALS['delugeURL']) && !empty($GLOBALS['delugePassword']) && qualifyRequest($GLOBALS['homepageDelugeAuth'])) {
 		try {
 			$deluge = new deluge($GLOBALS['delugeURL'], decrypt($GLOBALS['delugePassword']));
 			$torrents = $deluge->getTorrents(null, 'comment, download_payload_rate, eta, hash, is_finished, is_seed, message, name, paused, progress, queue, state, total_size, upload_payload_rate');
-			if ($GLOBALS['delugeHideSeeding'] || $GLOBALS['delugeHideCompleted']) {
-				$filter = array();
-				if ($GLOBALS['delugeHideSeeding']) {
-					array_push($filter, 'Seeding', 'Uploading', 'queuedUP');
+			foreach ($torrents as $key => $value) {
+				$tempStatus = delugeStatus($value->queue, $value->state, $value->progress);
+				if ($tempStatus == 'Seeding' && $GLOBALS['delugeHideSeeding']) {
+					//do nothing
+				} elseif ($tempStatus == 'Finished' && $GLOBALS['delugeHideCompleted']) {
+					//do nothing
+				} else {
+					$api['content']['queueItems'][] = $value;
 				}
-				if ($GLOBALS['delugeHideCompleted']) {
-					array_push($filter, 'Seeding', 'Completed');
-				}
-				//prettyPrint($torrents);
-				foreach ($torrents as $key => $value) {
-					if (!in_array($value->state, $filter)) {
-						$api['content']['queueItems'][] = $value;
-					}
-				}
-			} else {
-				$api['content']['queueItems'] = $torrents;
 			}
 			$api['content']['queueItems'] = (empty($api['content']['queueItems'])) ? [] : $api['content']['queueItems'];
 			$api['content']['historyItems'] = false;
@@ -874,7 +1003,9 @@ function getCalendar()
 			foreach ($sonarrs as $key => $value) {
 				try {
 					$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
-					$sonarrCalendar = getSonarrCalendar($sonarr->getCalendar($startDate, $endDate, $GLOBALS['sonarrUnmonitored']), $key);
+					$sonarr = $sonarr->getCalendar($startDate, $endDate, $GLOBALS['sonarrUnmonitored']);
+					$result = json_decode($sonarr, true);
+					$sonarrCalendar = (array_key_exists('error', $result)) ? '' : getSonarrCalendar($sonarr, $key);;
 				} catch (Exception $e) {
 					writeLog('error', 'Sonarr Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				}
@@ -899,7 +1030,9 @@ function getCalendar()
 			foreach ($lidarrs as $key => $value) {
 				try {
 					$lidarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token'], true);
-					$lidarrCalendar = getLidarrCalendar($lidarr->getCalendar($startDate, $endDate), $key);
+					$lidarr = $lidarr->getCalendar($startDate, $endDate);
+					$result = json_decode($lidarr, true);
+					$lidarrCalendar = (array_key_exists('error', $result)) ? '' : getLidarrCalendar($lidarr, $key);;
 				} catch (Exception $e) {
 					writeLog('error', 'Lidarr Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				}
@@ -924,7 +1057,9 @@ function getCalendar()
 			foreach ($radarrs as $key => $value) {
 				try {
 					$radarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
-					$radarrCalendar = getRadarrCalendar($radarr->getCalendar($startDate, $endDate), $key, $value['url']);
+					$radarr = $radarr->getCalendar($startDate, $endDate);
+					$result = json_decode($radarr, true);
+					$radarrCalendar = (array_key_exists('error', $result)) ? '' : getRadarrCalendar($radarr, $key, $value['url']);
 				} catch (Exception $e) {
 					writeLog('error', 'Radarr Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				}
@@ -1663,7 +1798,7 @@ function getSickrageCalendarHistory($array, $number)
 
 function ombiAPI($array)
 {
-	return ombiAction($array['data']['id'], $array['data']['action'], $array['data']['type']);
+	return ombiAction($array['data']['id'], $array['data']['action'], $array['data']['type'], $array['data']);
 }
 
 function ombiImport($type = null)
@@ -1679,10 +1814,13 @@ function ombiImport($type = null)
 			$options = (localURL($url)) ? array('verify' => false) : array();
 			switch ($type) {
 				case 'emby':
-					$response = Requests::get($url . "/api/v1/Job/embyuserimporter", $headers, $options);
+				case 'emby_local':
+				case 'emby_connect':
+				case 'emby_all':
+					$response = Requests::post($url . "/api/v1/Job/embyuserimporter", $headers, $options);
 					break;
 				case 'plex':
-					$response = Requests::get($url . "/api/v1/Job/plexuserimporter", $headers, $options);
+					$response = Requests::post($url . "/api/v1/Job/plexuserimporter", $headers, $options);
 					break;
 				default:
 					break;
@@ -1690,15 +1828,19 @@ function ombiImport($type = null)
 			if ($response->success) {
 				writeLog('success', 'OMBI Connect Function - Ran User Import', 'SYSTEM');
 				return true;
+			} else {
+				writeLog('error', 'OMBI Connect Function - Error: Connection Unsuccessful', 'SYSTEM');
+				return false;
 			}
 		} catch (Requests_Exception $e) {
 			writeLog('error', 'OMBI Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+			return false;
 		};
 	}
 	return false;
 }
 
-function ombiAction($id, $action, $type)
+function ombiAction($id, $action, $type, $fullArray = null)
 {
 	if ($GLOBALS['homepageOmbiEnabled'] && !empty($GLOBALS['ombiURL']) && !empty($GLOBALS['ombiToken']) && qualifyRequest($GLOBALS['homepageOmbiAuth'])) {
 		$url = qualifyURL($GLOBALS['ombiURL']);
@@ -1716,9 +1858,9 @@ function ombiAction($id, $action, $type)
 				$type = 'tv';
 				$add = array(
 					'tvDbId' => $id,
-					'requestAll' => true,
-					'latestSeason' => true,
-					'firstSeason' => true
+					'requestAll' => ombiTVDefault('all'),
+					'latestSeason' => ombiTVDefault('last'),
+					'firstSeason' => ombiTVDefault('first')
 				);
 				break;
 			default:
@@ -1913,10 +2055,10 @@ function testAPIConnection($array)
 					foreach ($sonarrs as $key => $value) {
 						try {
 							$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
-							$sonarr->getSystemStatus();
-							return true;
+							$result = json_decode($sonarr->getSystemStatus(), true);
+							return (array_key_exists('error', $result)) ? $result['error']['msg'] : true;
 						} catch (Exception $e) {
-							return $e->getMessage();
+							return strip($e->getMessage());
 						}
 					}
 				}
@@ -1939,8 +2081,8 @@ function testAPIConnection($array)
 					foreach ($sonarrs as $key => $value) {
 						try {
 							$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token'], true);
-							$sonarr->getSystemStatus();
-							return true;
+							$result = json_decode($sonarr->getSystemStatus(), true);
+							return (array_key_exists('error', $result)) ? $result['error']['msg'] : true;
 						} catch (Exception $e) {
 							return $e->getMessage();
 						}
@@ -1965,8 +2107,8 @@ function testAPIConnection($array)
 					foreach ($sonarrs as $key => $value) {
 						try {
 							$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
-							$sonarr->getSystemStatus();
-							return true;
+							$result = json_decode($sonarr->getSystemStatus(), true);
+							return (array_key_exists('error', $result)) ? $result['error']['msg'] : true;
 						} catch (Exception $e) {
 							return $e->getMessage();
 						}
@@ -2025,6 +2167,30 @@ function testAPIConnection($array)
 				}
 			} else {
 				return 'URL and/or Password not setup';
+			}
+			break;
+		case 'rtorrent':
+			if (!empty($GLOBALS['rTorrentURL'])) {
+				try {
+					$digest = qualifyURL($GLOBALS['rTorrentURL'], true);
+					$passwordInclude = ($GLOBALS['rTorrentUsername'] != '' && $GLOBALS['rTorrentPassword'] != '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
+					$extraPath = (strpos($GLOBALS['rTorrentURL'], '.php') !== false) ? '' : '/RPC2';
+					$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
+					$options = (localURL($url)) ? array('verify' => false) : array();
+					$data = xmlrpc_encode_request("system.listMethods", null);
+					$response = Requests::post($url, array(), $data, $options);
+					if ($response->success) {
+						$methods = xmlrpc_decode(str_replace('i8>', 'i4>', $response->body));
+						if (count($methods) !== 0) {
+							return true;
+						}
+					}
+					return false;
+				} catch
+				(Requests_Exception $e) {
+					writeLog('error', 'rTorrent Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+					return $e->getMessage();
+				};
 			}
 			break;
 		default :

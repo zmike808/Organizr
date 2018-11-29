@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
@@ -11,7 +11,7 @@ use Dibi;
 
 
 /**
- * The dibi driver for MySQL database.
+ * The driver for MySQL database.
  *
  * Driver options:
  *   - host => the MySQL server host name
@@ -33,7 +33,9 @@ class MySqlDriver implements Dibi\Driver, Dibi\ResultDriver
 	use Dibi\Strict;
 
 	const ERROR_ACCESS_DENIED = 1045;
+
 	const ERROR_DUPLICATE_ENTRY = 1062;
+
 	const ERROR_DATA_TRUNCATED = 1265;
 
 	/** @var resource|null */

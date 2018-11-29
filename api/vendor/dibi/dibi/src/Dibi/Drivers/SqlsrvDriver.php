@@ -1,19 +1,18 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
 namespace Dibi\Drivers;
 
 use Dibi;
-use Dibi\Connection;
 use Dibi\Helpers;
 
 
 /**
- * The dibi driver for Microsoft SQL Server and SQL Azure databases.
+ * The driver for Microsoft SQL Server and SQL Azure databases.
  *
  * Driver options:
  *   - host => the MS SQL server host name. It can also include a port number (hostname:port)
@@ -23,7 +22,6 @@ use Dibi\Helpers;
  *   - options (array) => connection options {@link https://msdn.microsoft.com/en-us/library/cc296161(SQL.90).aspx}
  *   - charset => character encoding to set (default is UTF-8)
  *   - resource (resource) => existing connection resource
- *   - lazy, profiler, result, substitutes, ... => see Dibi\Connection options
  */
 class SqlsrvDriver implements Dibi\Driver, Dibi\ResultDriver
 {
@@ -287,7 +285,7 @@ class SqlsrvDriver implements Dibi\Driver, Dibi\ResultDriver
 		if (!$value instanceof \DateTime && !$value instanceof \DateTimeInterface) {
 			$value = new Dibi\DateTime($value);
 		}
-		return $value->format("'Y-m-d H:i:s.u'");
+		return 'CONVERT(DATETIME2(7), ' . $value->format("'Y-m-d H:i:s.u'") . ')';
 	}
 
 
@@ -362,7 +360,9 @@ class SqlsrvDriver implements Dibi\Driver, Dibi\ResultDriver
 	 */
 	public function __destruct()
 	{
-		$this->autoFree && $this->getResultResource() && $this->free();
+		if ($this->autoFree && $this->getResultResource()) {
+			$this->free();
+		}
 	}
 
 

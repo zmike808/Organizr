@@ -6,7 +6,7 @@
 function login($array)
 {
 	// Grab username and Password from login form
-	$username = $password = '';
+	$username = $password = $oAuth = $oAuthType = '';
 	foreach ($array['data'] as $items) {
 		foreach ($items as $key => $value) {
 			if ($key == 'name') {
@@ -21,7 +21,8 @@ function login($array)
 		}
 	}
 	$username = strtolower($username);
-	$days = (isset($remember)) ? 7 : 1;
+	$days = (isset($remember)) ? $GLOBALS['rememberMeDays'] : 1;
+	$oAuth = (isset($oAuth)) ? $oAuth : false;
 	try {
 		$database = new Dibi\Connection([
 			'driver' => 'sqlite3',
@@ -29,36 +30,63 @@ function login($array)
 		]);
 		$authSuccess = false;
 		$function = 'plugin_auth_' . $GLOBALS['authBackend'];
-		$result = $database->fetch('SELECT * FROM users WHERE username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE', $username, $username);
-		switch ($GLOBALS['authType']) {
-			case 'external':
-				if (function_exists($function)) {
-					$authSuccess = $function($username, $password);
-				}
-				break;
-			/** @noinspection PhpMissingBreakStatementInspection */
-			case 'both':
-				if (function_exists($function)) {
-					$authSuccess = $function($username, $password);
-				}
-			// no break
-			default: // Internal
-				if (!$authSuccess) {
-					// perform the internal authentication step
-					if (password_verify($password, $result['password'])) {
-						$authSuccess = true;
+		if (!$oAuth) {
+			$result = $database->fetch('SELECT * FROM users WHERE username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE', $username, $username);
+			switch ($GLOBALS['authType']) {
+				case 'external':
+					if (function_exists($function)) {
+						$authSuccess = $function($username, $password);
 					}
-				}
+					break;
+				/** @noinspection PhpMissingBreakStatementInspection */
+				case 'both':
+					if (function_exists($function)) {
+						$authSuccess = $function($username, $password);
+					}
+				// no break
+				default: // Internal
+					if (!$authSuccess) {
+						// perform the internal authentication step
+						if (password_verify($password, $result['password'])) {
+							$authSuccess = true;
+						}
+					}
+			}
+		} else {
+			// Has oAuth Token!
+			switch ($oAuthType) {
+				case 'plex':
+					if ($GLOBALS['plexoAuth']) {
+						$tokenInfo = checkPlexToken($oAuth);
+						if ($tokenInfo) {
+							$authSuccess = array(
+								'username' => $tokenInfo['user']['username'],
+								'email' => $tokenInfo['user']['email'],
+								'image' => $tokenInfo['user']['thumb'],
+								'token' => $tokenInfo['user']['authToken']
+							);
+							coookie('set', 'oAuth', 'true', $GLOBALS['rememberMeDays']);
+							$authSuccess = ((!empty($GLOBALS['plexAdmin']) && strtolower($GLOBALS['plexAdmin']) == strtolower($tokenInfo['user']['username'])) || checkPlexUser($tokenInfo['user']['username'])) ? $authSuccess : false;
+						}
+					}
+					break;
+				default:
+					return 'error';
+					break;
+			}
+			$result = ($authSuccess) ? $database->fetch('SELECT * FROM users WHERE username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE', $authSuccess['username'], $authSuccess['email']) : '';
 		}
 		if ($authSuccess) {
 			// Make sure user exists in database
 			$userExists = false;
-			$passwordMatches = false;
+			$passwordMatches = ($oAuth) ? true : false;
 			$token = (is_array($authSuccess) && isset($authSuccess['token']) ? $authSuccess['token'] : '');
 			if ($result['username']) {
 				$userExists = true;
 				$username = $result['username'];
-				$passwordMatches = (password_verify($password, $result['password'])) ? true : false;
+				if ($passwordMatches == false) {
+					$passwordMatches = (password_verify($password, $result['password'])) ? true : false;
+				}
 			}
 			if ($userExists) {
 				//does org password need to be updated
@@ -88,6 +116,8 @@ function login($array)
 						return '2FA';
 					} else {
 						if (!verify2FA($TFA[1], $tfaCode, $TFA[0])) {
+							writeLoginLog($username, 'error');
+							writeLog('error', 'Login Function - Wrong 2FA', $username);
 							return '2FA-incorrect';
 						}
 					}
@@ -104,8 +134,8 @@ function login($array)
 				}
 			} else {
 				// Create User
-				ssoCheck($username, $password, $token);
-				return authRegister((is_array($authSuccess) && isset($authSuccess['username']) ? $authSuccess['username'] : $username), $password, defaultUserGroup(), (is_array($authSuccess) && isset($authSuccess['email']) ? $authSuccess['email'] : ''));
+				//ssoCheck($username, $password, $token);
+				return authRegister((is_array($authSuccess) && isset($authSuccess['username']) ? $authSuccess['username'] : $username), $password, defaultUserGroup(), (is_array($authSuccess) && isset($authSuccess['email']) ? $authSuccess['email'] : ''), $token);
 			}
 		} else {
 			// authentication failed
@@ -156,6 +186,8 @@ function createDB($path, $filename)
     		`id`	INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
     		`token`	TEXT UNIQUE,
     		`user_id`	INTEGER,
+    		`browser`	TEXT,
+    		`ip`	TEXT,
             `created` DATE,
             `expires` DATE
     	);');
@@ -189,7 +221,10 @@ function createDB($path, $filename)
     		`type`	INTEGER,
     		`splash`	INTEGER,
     		`ping`		INTEGER,
-    		`ping_url`	TEXT
+    		`ping_url`	TEXT,
+    		`timeout`	INTEGER,
+    		`timeout_ms`	INTEGER,
+    		`preload`	INTEGER
     	);');
 		// Create Options
 		$createDB->query('CREATE TABLE `options` (
@@ -244,34 +279,38 @@ function updateDB($oldVerNum = false)
 				$tables = $connectOldDB->fetchAll('SELECT name FROM sqlite_master WHERE type="table"');
 				foreach ($tables as $table) {
 					$data = $connectOldDB->fetchAll('SELECT * FROM ' . $table['name']);
+					writeLog('success', 'Update Function -  Grabbed Table data for Table: ' . $table['name'], 'Database');
 					foreach ($data as $row) {
 						$connectNewDB->query('INSERT into ' . $table['name'], $row);
 					}
+					writeLog('success', 'Update Function -  Wrote Table data for Table: ' . $table['name'], 'Database');
 				}
+				writeLog('success', 'Update Function -  All Table data converted - Starting Movement', 'Database');
 				$connectOldDB->disconnect();
 				$connectNewDB->disconnect();
 				// Remove Current Database
 				if (file_exists($GLOBALS['dbLocation'] . $migrationDB)) {
 					$oldFileSize = filesize($GLOBALS['dbLocation'] . $GLOBALS['dbName']);
 					$newFileSize = filesize($GLOBALS['dbLocation'] . $migrationDB);
-					if ($newFileSize >= $oldFileSize) {
+					if ($newFileSize > 0) {
+						writeLog('success', 'Update Function -  Table Size of new DB ok..', 'Database');
 						@unlink($GLOBALS['dbLocation'] . $GLOBALS['dbName']);
 						copy($GLOBALS['dbLocation'] . $migrationDB, $GLOBALS['dbLocation'] . $GLOBALS['dbName']);
 						@unlink($GLOBALS['dbLocation'] . $migrationDB);
 						writeLog('success', 'Update Function -  Migrated Old Info to new Database', 'Database');
-						unlink($tempLock);
+						@unlink($tempLock);
 						return true;
 					}
 				}
-				unlink($tempLock);
+				@unlink($tempLock);
 				return false;
 			} catch (Dibi\Exception $e) {
 				writeLog('error', 'Update Function -  Error [' . $e . ']', 'Database');
-				unlink($tempLock);
+				@unlink($tempLock);
 				return false;
 			}
 		}
-		unlink($tempLock);
+		@unlink($tempLock);
 		return false;
 	}
 	return false;
@@ -411,7 +450,7 @@ function getGuest()
 				'driver' => 'sqlite3',
 				'database' => $GLOBALS['dbLocation'] . $GLOBALS['dbName'],
 			]);
-			$all = $connect->fetch('SELECT * FROM groups WHERE `group` = "Guest"');
+			$all = $connect->fetch('SELECT * FROM groups WHERE `group_id` = 999');
 			return $all;
 		} catch (Dibi\Exception $e) {
 			return false;
@@ -535,6 +574,7 @@ function adminEditUser($array)
                         UPDATE users SET', [
 						'username' => $array['data']['username'],
 						'email' => $array['data']['email'],
+						'image' => gravatar($array['data']['email']),
 					], '
                         WHERE id=?', $array['data']['id']);
 					if (!empty($array['data']['password'])) {
@@ -688,6 +728,23 @@ function editTabs($array)
 				return false;
 			}
 			break;
+		case 'changePreload':
+			try {
+				$connect = new Dibi\Connection([
+					'driver' => 'sqlite3',
+					'database' => $GLOBALS['dbLocation'] . $GLOBALS['dbName'],
+				]);
+				$connect->query('
+                        UPDATE tabs SET', [
+					'preload' => $array['data']['tabPreload'],
+				], '
+                        WHERE id=?', $array['data']['id']);
+				writeLog('success', 'Tab Editor Function - Tab: ' . $array['data']['tab'] . '\'s preload status was changed to [' . $array['data']['tabPreloadWord'] . ']', $GLOBALS['organizrUser']['username']);
+				return true;
+			} catch (Dibi\Exception $e) {
+				return false;
+			}
+			break;
 		case 'changeDefault':
 			try {
 				$connect = new Dibi\Connection([
@@ -729,6 +786,7 @@ function editTabs($array)
                     UPDATE tabs SET', [
 					'name' => $array['data']['tabName'],
 					'url' => $array['data']['tabURL'],
+					'url_local' => $array['data']['tabLocalURL'],
 					'ping_url' => $array['data']['pingURL'],
 					'image' => $array['data']['tabImage'],
 				], '
@@ -772,6 +830,7 @@ function editTabs($array)
 					'category_id' => $default,
 					'name' => $array['data']['tabName'],
 					'url' => $array['data']['tabURL'],
+					'url_local' => $array['data']['tabLocalURL'],
 					'ping_url' => $array['data']['pingURL'],
 					'default' => $array['data']['tabDefault'],
 					'enabled' => 1,
@@ -969,6 +1028,39 @@ function createUser($username, $password, $defaults, $email = null)
 	}
 }
 
+function importUsers($array)
+{
+	$imported = 0;
+	$defaults = defaultUserGroup();
+	foreach ($array as $user) {
+		$password = random_ascii_string(30);
+		if ($user['username'] !== '' && $user['email'] !== '' && $password !== '' && $defaults !== '') {
+			$newUser = createUser($user['username'], $password, $defaults, $user['email']);
+			if (!$newUser) {
+				writeLog('error', 'Import Function - Error', $user['username']);
+			} else {
+				$imported++;
+			}
+		}
+	}
+	return $imported;
+}
+
+function importUsersType($array)
+{
+	$type = $array['data']['type'];
+	if ($type !== '') {
+		switch ($type) {
+			case 'plex':
+				return importUsers(allPlexUsers(true));
+				break;
+			default:
+				return false;
+		}
+	}
+	return false;
+}
+
 function allTabs()
 {
 	if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
@@ -1018,7 +1110,7 @@ function loadTabs()
 			$categories = $connect->fetchAll('SELECT * FROM categories ORDER BY `order` ASC');
 			$all['tabs'] = $tabs;
 			foreach ($tabs as $k => $v) {
-				$v['access_url'] = isset($v['url_local']) && getenv('SERVER_ADDR') == userIP() ? $v['url_local'] : $v['url'];
+				$v['access_url'] = (!empty($v['url_local']) && ($v['url_local'] !== null) && ($v['url_local'] !== 'null') && isLocal() && $v['type'] !== 0) ? $v['url_local'] : $v['url'];
 			}
 			$count = array_map(function ($element) {
 				return $element['category_id'];

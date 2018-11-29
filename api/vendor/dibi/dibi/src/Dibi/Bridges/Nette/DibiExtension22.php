@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the "dibi" - smart database abstraction layer.
+ * This file is part of the Dibi, smart database abstraction layer (https://dibiphp.com)
  * Copyright (c) 2005 David Grudl (https://davidgrudl.com)
  */
 
@@ -50,7 +50,7 @@ class DibiExtension22 extends Nette\DI\CompilerExtension
 		}
 
 		$connection = $container->addDefinition($this->prefix('connection'))
-			->setClass('Dibi\Connection', [$config])
+			->setFactory('Dibi\Connection', [$config])
 			->setAutowired(isset($config['autowired']) ? $config['autowired'] : true);
 
 		if (class_exists('Tracy\Debugger')) {
@@ -61,7 +61,7 @@ class DibiExtension22 extends Nette\DI\CompilerExtension
 		}
 		if ($useProfiler) {
 			$panel = $container->addDefinition($this->prefix('panel'))
-				->setClass('Dibi\Bridges\Tracy\Panel', [
+				->setFactory('Dibi\Bridges\Tracy\Panel', [
 					isset($config['explain']) ? $config['explain'] : true,
 					isset($config['filter']) && $config['filter'] === false ? Dibi\Event::ALL : Dibi\Event::QUERY,
 				]);
