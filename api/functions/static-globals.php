@@ -1,7 +1,7 @@
 <?php
 // ===================================
 // Organizr Version
-$GLOBALS['installedVersion'] = '2.0.0-beta.800';
+$GLOBALS['installedVersion'] = '2.0.0-beta.960';
 // ===================================
 // Quick php Version check
 $GLOBALS['minimumPHP'] = '7.0.0';
@@ -12,6 +12,11 @@ if (!(version_compare(PHP_VERSION, $GLOBALS['minimumPHP']) >= 0)) {
 $GLOBALS['userConfigPath'] = dirname(__DIR__, 1) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php';
 $GLOBALS['defaultConfigPath'] = dirname(__DIR__, 1) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'default.php';
 $GLOBALS['currentTime'] = gmdate("Y-m-d\TH:i:s\Z");
+$GLOBALS['docker'] = (file_exists(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'Docker.txt')) ? true : false;
+$GLOBALS['paths'] = array(
+	'Root Folder' => dirname(__DIR__, 2) . DIRECTORY_SEPARATOR,
+	'API Folder' => dirname(__DIR__, 1) . DIRECTORY_SEPARATOR
+);
 // Quick function for plugins
 function pluginFiles($type)
 {

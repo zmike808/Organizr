@@ -79,16 +79,20 @@ function checkPlexUser($username)
 						if (isset($child['username']) && strtolower($child['username']) == $usernameLower || isset($child['email']) && strtolower($child['email']) == $usernameLower) {
 							writeLog('success', 'Plex User Check - Found User on Friends List', $username);
 							$machineMatches = false;
-							foreach ($child->Server as $server) {
-								if ((string)$server['machineIdentifier'] == $GLOBALS['plexID']) {
-									$machineMatches = true;
+							if ($GLOBALS['plexStrictFriends']) {
+								foreach ($child->Server as $server) {
+									if ((string)$server['machineIdentifier'] == $GLOBALS['plexID']) {
+										$machineMatches = true;
+									}
 								}
-								if ($machineMatches) {
-									writeLog('success', 'Plex User Check - User Approved for Login', $username);
-									return true;
-								} else {
-									writeLog('error', 'Plex User Check - User not Approved User', $username);
-								}
+							} else {
+								$machineMatches = true;
+							}
+							if ($machineMatches) {
+								writeLog('success', 'Plex User Check - User Approved for Login', $username);
+								return true;
+							} else {
+								writeLog('error', 'Plex User Check - User not Approved User', $username);
 							}
 						}
 					}
@@ -303,10 +307,11 @@ function plugin_auth_emby_connect($username, $password)
 					}
 				}
 				if ($connectId) {
+					writeLog('success', 'Emby Connect Auth Function - Attempting to Login with Emby ID: ' . $connectId, $username);
 					$connectURL = 'https://connect.emby.media/service/user/authenticate';
 					$headers = array(
 						'Accept' => 'application/json',
-						'Content-Type' => 'application/x-www-form-urlencoded',
+						'X-Application' => 'Organizr/2.0'
 					);
 					$data = array(
 						'nameOrEmail' => $username,
@@ -320,7 +325,11 @@ function plugin_auth_emby_connect($username, $password)
 								'email' => $json['User']['Email'],
 								'image' => $json['User']['ImageUrl'],
 							);
+						} else {
+							writeLog('error', 'Emby Connect Auth Function - Bad Response', $username);
 						}
+					} else {
+						writeLog('error', 'Emby Connect Auth Function - 401 From Emby Connect', $username);
 					}
 				}
 			}

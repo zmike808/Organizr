@@ -1,6 +1,6 @@
 <?php
 return array(
-	'branch' => 'v2-develop',
+	'branch' => 'v2-master',
 	'authType' => 'internal',
 	'authBackend' => '',
 	'authBackendHost' => '',
@@ -37,6 +37,7 @@ return array(
 	'tautulliURL' => '',
 	'ombiURL' => '',
 	'ombiToken' => '',
+	'ombiAlias' => false,
 	'ssoPlex' => false,
 	'ssoOmbi' => false,
 	'ssoTautulli' => false,
@@ -200,5 +201,6 @@ return array(
 	'plexoAuth' => false,
 	'statusSounds' => false,
 	'rememberMeDays' => '7',
-	'rememberMe' => true
+	'rememberMe' => true,
+	'plexStrictFriends' => true
 );

@@ -21,6 +21,7 @@ function organizrSpecialSettings()
 				'authRequest' => (qualifyRequest($GLOBALS['homepageOmbiRequestAuth'])) ? true : false,
 				'sso' => ($GLOBALS['ssoOmbi']) ? true : false,
 				'cookie' => (isset($_COOKIE['Auth'])) ? true : false,
+				'alias' => ($GLOBALS['ombiAlias']) ? true : false,
 			),
 			'options' => array(
 				'alternateHomepageHeaders' => $GLOBALS['alternateHomepageHeaders'],
@@ -35,7 +36,7 @@ function organizrSpecialSettings()
 			'plex' => array(
 				'enabled' => ($GLOBALS['ssoPlex']) ? true : false,
 				'cookie' => isset($_COOKIE['mpt']) ? true : false,
-				'machineID' => $GLOBALS['plexID'],
+				'machineID' => (strlen($GLOBALS['plexID']) == 40) ? true : false,
 				'token' => ($GLOBALS['plexToken'] !== '') ? true : false,
 				'oAuthEnabled' => ($GLOBALS['plexoAuth']) ? true : false,
 				'backend' => ($GLOBALS['authBackend'] == 'plex') ? true : false,
@@ -43,13 +44,13 @@ function organizrSpecialSettings()
 			'ombi' => array(
 				'enabled' => ($GLOBALS['ssoOmbi']) ? true : false,
 				'cookie' => isset($_COOKIE['Auth']) ? true : false,
-				'url' => ($GLOBALS['ombiURL'] !== '') ? true : false,
+				'url' => ($GLOBALS['ombiURL'] !== '') ? $GLOBALS['ombiURL'] : false,
 				'api' => ($GLOBALS['ombiToken'] !== '') ? true : false,
 			),
 			'tautulli' => array(
 				'enabled' => ($GLOBALS['ssoTautulli']) ? true : false,
 				'cookie' => !empty($tautulli) ? true : false,
-				'url' => ($GLOBALS['tautulliURL'] !== '') ? true : false,
+				'url' => ($GLOBALS['tautulliURL'] !== '') ? $GLOBALS['tautulliURL'] : false,
 			),
 		),
 		'ping' => array(
@@ -89,9 +90,11 @@ function organizrSpecialSettings()
 			'authDebug' => $GLOBALS['authDebug'],
 			'minimalLoginScreen' => $GLOBALS['minimalLoginScreen'],
 			'unsortedTabs' => $GLOBALS['unsortedTabs'],
+			'authType' => $GLOBALS['authType'],
 			'authBackend' => $GLOBALS['authBackend'],
 			'newMessageSound' => (isset($GLOBALS['CHAT-newMessageSound-include'])) ? $GLOBALS['CHAT-newMessageSound-include'] : '',
 			'uuid' => $GLOBALS['uuid'],
+			'docker' => $GLOBALS['docker']
 		)
 	);
 }
@@ -418,6 +421,15 @@ function organizrStatus()
 	return $status;
 }
 
+function pathsWritable($paths)
+{
+	$results = array();
+	foreach ($paths as $k => $v) {
+		$results[$k] = is_writable($v);
+	}
+	return $results;
+}
+
 function getSettingsMain()
 {
 	return array(
@@ -434,7 +446,9 @@ function getSettingsMain()
 				'label' => 'Force Install Branch',
 				'class' => 'updateNow',
 				'icon' => 'fa fa-download',
-				'text' => 'Retrieve'
+				'text' => 'Retrieve',
+				'attr' => ($GLOBALS['docker']) ? 'title="You can just restart your docker to update"' : '',
+				'help' => ($GLOBALS['docker']) ? 'Since you are using the Official Docker image, You can just restart your docker to update' : 'This will re-download all of the source files for Organizr'
 			)
 		),
 		'API' => array(
@@ -505,11 +519,27 @@ function getSettingsMain()
 				'attr' => 'data-effect="mfp-3d-unfold"'
 			),
 			array(
+				'type' => 'input',
+				'name' => 'plexAdmin',
+				'label' => 'Admin Username',
+				'class' => 'plexAuth switchAuth',
+				'value' => $GLOBALS['plexAdmin'],
+				'placeholder' => 'Admin username for Plex'
+			),
+			array(
 				'type' => 'switch',
 				'name' => 'plexoAuth',
 				'label' => 'Enable Plex oAuth',
-				'class' => 'popup-with-form plexAuth switchAuth',
+				'class' => 'plexAuth switchAuth',
 				'value' => $GLOBALS['plexoAuth']
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'plexStrictFriends',
+				'label' => 'Strict Plex Friends ',
+				'class' => 'plexAuth switchAuth',
+				'value' => $GLOBALS['plexStrictFriends'],
+				'help' => 'Enabling this will only allow Friends that have shares to the Machine ID entered above to login, Having this disabled will allow all Friends on your Friends list to login'
 			),
 			array(
 				'type' => 'input',
@@ -533,6 +563,7 @@ function getSettingsMain()
 				'class' => 'embyAuth switchAuth',
 				'label' => 'Emby URL',
 				'value' => $GLOBALS['embyURL'],
+				'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
 				'placeholder' => 'http(s)://hostname:port'
 			),
 			array(
@@ -593,12 +624,14 @@ function getSettingsMain()
 				'type' => 'password-alt',
 				'name' => 'registrationPassword',
 				'label' => 'Registration Password',
+				'help' => 'Sets the password for the Registration form on the login screen',
 				'value' => $GLOBALS['registrationPassword'],
 			),
 			array(
 				'type' => 'switch',
 				'name' => 'hideRegistration',
 				'label' => 'Hide Registration',
+				'help' => 'Enable this to hide the Registration button on the login screen',
 				'value' => $GLOBALS['hideRegistration'],
 			),
 			array(
@@ -773,6 +806,7 @@ function getSSO()
 				'name' => 'ombiURL',
 				'label' => 'Ombi URL',
 				'value' => $GLOBALS['ombiURL'],
+				'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
 				'placeholder' => 'http(s)://hostname:port'
 			),
 			array(
@@ -794,6 +828,7 @@ function getSSO()
 				'name' => 'tautulliURL',
 				'label' => 'Tautulli URL',
 				'value' => $GLOBALS['tautulliURL'],
+				'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
 				'placeholder' => 'http(s)://hostname:port'
 			),
 			array(
@@ -1348,16 +1383,33 @@ function showLogin()
 	}
 }
 
+function checkoAuth()
+{
+	return ($GLOBALS['plexoAuth'] && $GLOBALS['authType'] !== 'internal') ? true : false;
+}
+
 function showoAuth()
 {
 	$buttons = '';
-	if ($GLOBALS['plexoAuth']) {
-		$buttons .= '<a href="javascript:void(0)" onclick="oAuthStart(\'plex\')" class="btn btn-lg btn-block text-uppercase waves-effect waves-light bg-plex text-muted" data-toggle="tooltip" title="" data-original-title="Login with Plex"> <span>Login with Plex Account</span><i aria-hidden="true" class="mdi mdi-plex m-l-5"></i> </a>';
+	if ($GLOBALS['plexoAuth'] && $GLOBALS['authType'] !== 'internal') {
+		$buttons .= '<a href="javascript:void(0)" onclick="oAuthStart(\'plex\')" class="btn btn-lg btn-block text-uppercase waves-effect waves-light bg-plex text-muted" data-toggle="tooltip" title="" data-original-title="Login with Plex"> <span>Login</span><i aria-hidden="true" class="mdi mdi-plex m-l-5"></i> </a>';
 	}
 	return ($buttons) ? '
-		<div class="row">
-            <div class="col-xs-12 col-sm-12 col-md-12 m-t-10 text-center">
-                <div class="social">' . $buttons . '</div>
+		<div class="panel">
+            <div class="panel-heading bg-org" id="plex-login-heading" role="tab">
+            	<a class="panel-title" data-toggle="collapse" href="#plex-login-collapse" data-parent="#login-panels" aria-expanded="false" aria-controls="organizr-login-collapse">
+	                <img class="lazyload loginTitle" data-src="plugins/images/tabs/plex.png"> &nbsp;
+                    <span class="text-uppercase fw300" lang="en">Login with Plex</span>
+            	</a>
+            </div>
+            <div class="panel-collapse collapse in" id="plex-login-collapse" aria-labelledby="plex-login-heading" role="tabpanel">
+                <div class="panel-body">
+               		<div class="row">
+			            <div class="col-xs-12 col-sm-12 col-md-12 text-center">
+			                <div class="social m-b-0">' . $buttons . '</div>
+			            </div>
+			        </div>
+               </div>
             </div>
         </div>
 	' : '';
@@ -1952,4 +2004,21 @@ function importUserButtons()
 		$buttons .= '<button class="btn bg-plex text-muted waves-effect waves-light importUsersButton" onclick="importUsers(\'plex\')" type="button"><span class="btn-label"><i class="mdi mdi-plex"></i></span><span lang="en">Import Plex Users</span></button>';
 	}
 	return ($buttons !== '') ? $buttons : $emptyButtons;
+}
+
+function settingsDocker()
+{
+	$type = ($GLOBALS['docker']) ? 'Official Docker' : 'Native';
+	return '<li><div class="bg-info"><i class="mdi mdi-flag mdi-24px text-white"></i></div><span class="text-muted hidden-xs m-t-10" lang="en">Install Type</span> ' . $type . '</li>';
+}
+
+function settingsPathChecks()
+{
+	$items = '';
+	$type = (array_search(false, pathsWritable($GLOBALS['paths']))) ? 'Not Writable' : 'Writable';
+	$result = '<li class="mouse" onclick="toggleWritableFolders();"><div class="bg-info"><i class="mdi mdi-folder mdi-24px text-white"></i></div><span class="text-muted hidden-xs m-t-10" lang="en">Organizr Paths</span> ' . $type . '</li>';
+	foreach (pathsWritable($GLOBALS['paths']) as $k => $v) {
+		$items .= '<li class="folders-writable hidden"><div class="bg-info"><i class="mdi mdi-folder mdi-24px text-white"></i></div><span class="text-muted hidden-xs m-t-10" lang="en">' . $k . '</span> ' . (($v) ? 'Writable' : 'Not Writable') . '</li>';
+	}
+	return $result . $items;
 }

@@ -1768,9 +1768,9 @@ function getSickrageCalendarHistory($array, $number)
 			"topTitle" => $seriesName,
 			"bottomTitle" => $bottomTitle,
 			"overview" => '',
-			"runtime" => $child['series']['runtime'],
+			"runtime" => isset($child['series']['runtime']) ? $child['series']['runtime'] : 30,
 			"image" => $fanart,
-			"ratings" => $child['series']['ratings']['value'],
+			"ratings" => isset($child['series']['ratings']['value']) ? $child['series']['ratings']['value'] : "unknown",
 			"videoQuality" => isset($child["quality"]) ? $child['quality'] : "unknown",
 			"audioChannels" => "",
 			"audioCodec" => "",
@@ -1954,50 +1954,58 @@ function getOmbiRequests($type = "both")
 					$movie = json_decode($movie->body, true);
 					//$movie = array_reverse($movie);
 					foreach ($movie as $key => $value) {
-						$requests[] = array(
-							'test' => $value,
-							'id' => $value['theMovieDbId'],
-							'title' => $value['title'],
-							'overview' => $value['overview'],
-							'poster' => (isset($value['posterPath']) && $value['posterPath'] !== '') ? 'https://image.tmdb.org/t/p/w300/' . $value['posterPath'] : '',
-							'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
-							'approved' => $value['approved'],
-							'available' => $value['available'],
-							'denied' => $value['denied'],
-							'deniedReason' => $value['deniedReason'],
-							'user' => $value['requestedUser']['userName'],
-							'request_id' => $value['id'],
-							'request_date' => $value['requestedDate'],
-							'release_date' => $value['releaseDate'],
-							'type' => 'movie',
-							'icon' => 'mdi mdi-filmstrip',
-							'color' => 'palette-Deep-Purple-900 bg white',
-						);
+						$proceed = (($GLOBALS['ombiLimitUser']) && strtolower($GLOBALS['organizrUser']['username']) == strtolower($value['requestedUser']['userName'])) || (!$GLOBALS['ombiLimitUser']) || qualifyRequest(1) ? true : false;
+						if ($proceed) {
+							$requests[] = array(
+								'test' => $value,
+								'id' => $value['theMovieDbId'],
+								'title' => $value['title'],
+								'overview' => $value['overview'],
+								'poster' => (isset($value['posterPath']) && $value['posterPath'] !== '') ? 'https://image.tmdb.org/t/p/w300/' . $value['posterPath'] : '',
+								'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
+								'approved' => $value['approved'],
+								'available' => $value['available'],
+								'denied' => $value['denied'],
+								'deniedReason' => $value['deniedReason'],
+								'user' => $value['requestedUser']['userName'],
+								'userAlias' => $value['requestedUser']['userAlias'],
+								'request_id' => $value['id'],
+								'request_date' => $value['requestedDate'],
+								'release_date' => $value['releaseDate'],
+								'type' => 'movie',
+								'icon' => 'mdi mdi-filmstrip',
+								'color' => 'palette-Deep-Purple-900 bg white',
+							);
+						}
 					}
 				}
 				if (isset($tv) && (is_array($tv) || is_object($tv))) {
 					$tv = json_decode($tv->body, true);
 					foreach ($tv as $key => $value) {
-						if (is_array($value['childRequests'][0])) {
-							$requests[] = array(
-								'test' => $value,
-								'id' => $value['tvDbId'],
-								'title' => $value['title'],
-								'overview' => $value['overview'],
-								'poster' => $value['posterPath'],
-								'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
-								'approved' => $value['childRequests'][0]['approved'],
-								'available' => $value['childRequests'][0]['available'],
-								'denied' => $value['childRequests'][0]['denied'],
-								'deniedReason' => $value['childRequests'][0]['deniedReason'],
-								'user' => $value['childRequests'][0]['requestedUser']['userName'],
-								'request_id' => $value['id'],
-								'request_date' => $value['childRequests'][0]['requestedDate'],
-								'release_date' => $value['releaseDate'],
-								'type' => 'tv',
-								'icon' => 'mdi mdi-television',
-								'color' => 'grayish-blue-bg',
-							);
+						if (count($value['childRequests']) > 0) {
+							$proceed = (($GLOBALS['ombiLimitUser']) && strtolower($GLOBALS['organizrUser']['username']) == strtolower($value['childRequests'][0]['requestedUser']['userName'])) || (!$GLOBALS['ombiLimitUser']) || qualifyRequest(1) ? true : false;
+							if ($proceed) {
+								$requests[] = array(
+									'test' => $value,
+									'id' => $value['tvDbId'],
+									'title' => $value['title'],
+									'overview' => $value['overview'],
+									'poster' => $value['posterPath'],
+									'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
+									'approved' => $value['childRequests'][0]['approved'],
+									'available' => $value['childRequests'][0]['available'],
+									'denied' => $value['childRequests'][0]['denied'],
+									'deniedReason' => $value['childRequests'][0]['deniedReason'],
+									'user' => $value['childRequests'][0]['requestedUser']['userName'],
+									'userAlias' => $value['childRequests'][0]['requestedUser']['userAlias'],
+									'request_id' => $value['id'],
+									'request_date' => $value['childRequests'][0]['requestedDate'],
+									'release_date' => $value['releaseDate'],
+									'type' => 'tv',
+									'icon' => 'mdi mdi-television',
+									'color' => 'grayish-blue-bg',
+								);
+							}
 						}
 					}
 				}
@@ -2020,6 +2028,30 @@ function getOmbiRequests($type = "both")
 function testAPIConnection($array)
 {
 	switch ($array['data']['action']) {
+		case 'ombi':
+			if (!empty($GLOBALS['ombiURL']) && !empty($GLOBALS['ombiToken'])) {
+				$url = qualifyURL($GLOBALS['ombiURL']);
+				$url = $url . "/api/v1/Status/info";
+				$headers = array(
+					"Accept" => "application/json",
+					"Content-Type" => "application/json",
+					"Apikey" => $GLOBALS['ombiToken']
+				);
+				try {
+					$options = (localURL($url)) ? array('verify' => false) : array();
+					$response = Requests::get($url, $headers, $options);
+					if ($response->success) {
+						return true;
+					} else {
+						return $response->body;
+					}
+				} catch (Requests_Exception $e) {
+					return $e->getMessage();
+				};
+			} else {
+				return 'URL and/or Token not setup';
+			}
+			break;
 		case 'plex':
 			if (!empty($GLOBALS['plexURL']) && !empty($GLOBALS['plexToken'])) {
 				$url = qualifyURL($GLOBALS['plexURL']);

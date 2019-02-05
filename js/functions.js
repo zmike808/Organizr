@@ -2,9 +2,10 @@
 var lang = new Lang();
 var langStrings = { "token": {} };
 loadLanguageList();
+var falbackLanguage = (languageList.filter(p => p.code == language(moment.locale(navigator.languages[0]))).length > 0 ? language(moment.locale(navigator.languages[0])) : 'en');
 lang.init({
 	//defaultLang: 'en',
-	currentLang: (getCookie('organizrLanguage')) ? getCookie('organizrLanguage') : language(moment.locale(navigator.languages[0])),
+	currentLang: (getCookie('organizrLanguage')) ? getCookie('organizrLanguage') : falbackLanguage,
 	cookie: {
 		name: 'organizrLanguage',
 		expiry: 365,
@@ -16,6 +17,7 @@ var timeouts = {};
 // Start Organizr
 $(document).ready(function () {
     launch();
+    local('r','loggingIn');
 });
 /* NORMAL FUNCTIONS */
 function setLangCookie(lang){
@@ -58,15 +60,41 @@ function orgDebug(cmd) {
         $('#debugResultsBox').removeClass('hidden');
         $('#debugResults').html(formatDebug(result));
         $('.cmdName').text(cmd);
+        if(bowser.mobile !== true){
+            $('#debugResults > .whitebox').slimScroll();
+        }
     } else {
 
     }
+}
+function jsonToHTML(json){
+    var html = '';
+    $.each(json, function(i,v) {
+
+        if(typeof v === 'object'){
+            html += i + ': <br/>';
+                $.each(v, function(index,value) {
+                html += '&nbsp; &nbsp; &nbsp; &nbsp;' + index + ': ' + value + '<br/>';
+            });
+        }else{
+            html += i + ': ' + v + '<br/>';
+        }
+    });
+    return html;
+}
+function copyDebug(){
+    var pre = $('#debugPreInfo').find('.whitebox').text();
+    var debug = $('#debugResults').find('.whitebox').text();
+    clipboard(true, pre + debug);
+    console.log('copied');
+    console.log(pre + debug);
 }
 function formatDebug(result){
     var formatted = '';
     switch (typeof result) {
         case 'object':
-            formatted = highlightObject(result);
+            //formatted = highlightObject(result);
+            formatted = jsonToHTML(result);
             break;
         default:
             formatted = result;
@@ -74,10 +102,42 @@ function formatDebug(result){
     }
     return '<pre class="whitebox bg-org text-success">' + formatted + '</pre>';
 }
+function getDebugPreInfo(){
+    var formatted = 'Version: ' + activeInfo.version +
+        '<br/>Branch: ' + activeInfo.branch +
+        '<br/>Server OS: ' + activeInfo.serverOS +
+        '<br/>PHP: ' + activeInfo.phpVersion +
+        '<br/>Install Type: ' + ((activeInfo.settings.misc.docker) ? 'Official Docker' : 'Native') +
+        '<br/>Auth Type: ' + activeInfo.settings.misc.authType +
+        '<br/>Auth Backend: ' + activeInfo.settings.misc.authBackend +
+        '<br/>Installed Plugins: ' + activeInfo.settings.misc.installedPlugins +
+        '<br/>Installed Themes: ' + activeInfo.settings.misc.installedThemes +
+        '<br/>Theme: ' + activeInfo.theme +
+        '<br/>Local: ' + activeInfo.settings.user.local +
+        '<br/>oAuth: ' + activeInfo.settings.user.oAuthLogin +
+        '<br/>Agent: ' + activeInfo.settings.user.agent;
+    formatted = '<pre class="whitebox bg-org text-success">' + formatted + '</pre>';
+    $('#debugPreInfo').html(formatted);
+    if(bowser.mobile !== true){
+        $('#debugPreInfo > .whitebox').slimScroll();
+    }
+}
 function orgDebugList(cmd){
     if(cmd !== ''){
         $('#debug-input').val(cmd);
         orgDebug();
+    }
+}
+function updateIssueLink(line){
+    var preNumber = line.match(/\((.*?)\)/g);
+    if(preNumber !== null){
+        preNumber = preNumber.toString();
+        var issueNumber = preNumber.substr(2, (preNumber.length - 3));
+        var issueLink = 'https://github.com/causefx/Organizr/issues/' + issueNumber;
+        issueLink = '<a href="' + issueLink + '" target="_blank">' + preNumber + '</a>';
+        return line.replace(preNumber, issueLink);
+    }else{
+        return line;
     }
 }
 function clipboard(trigger = true, string = null){
@@ -266,9 +326,15 @@ function cleanClass(string){
 function noTabs(arrayItems){
 	if (arrayItems.data.user.loggedin === true) {
 		organizrConnect('api/?v1/no_tabs').success(function(data) {
-			var json = JSON.parse(data);
+            try {
+                var response = JSON.parse(data);
+            }catch(e) {
+                console.log(e + ' error: ' + data);
+                alert(e + ' error: ' + data);
+                return false;
+            }
 			console.log("Organizr Function: No Tabs Available");
-			$(json.data).appendTo($('.organizr-area'));
+			$(response.data).appendTo($('.organizr-area'));
 		}).fail(function(xhr) {
 			console.error("Organizr Function: API Connection Failed");
 		});
@@ -298,8 +364,15 @@ function formatIcon (icon) {
 function logout(){
 	message('',' Goodbye!',activeInfo.settings.notifications.position,'#FFF','success','10000');
 	organizrAPI('GET','api/?v1/logout').success(function(data) {
-		var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		if(html.data == true){
+            local('set','message','Goodbye|Logout Successful|success');
 			location.reload();
 		}else{
 			message('Logout Error',' An Error Occured',activeInfo.settings.notifications.position,'#FFF','warning','10000');
@@ -428,6 +501,7 @@ function switchTab(tab, type){
 				$(buildFrame(tab,tabURL)).appendTo(newTab);
 				$("#preloader").fadeOut();
 			}
+            $('#frame-'+tab).focus();
 			break;
 		case 2:
 		case 3:
@@ -696,7 +770,7 @@ function buildAccordion(array){
     return '<div class="panel-group" id="'+mainId+'" aria-multiselectable="true" role="tablist">' + items + '</div>';
 }
 function buildFormItem(item){
-	var placeholder = (item.placeholder) ? ' placeholder="'+item.placeholder+'"' : '';
+    var placeholder = (item.placeholder) ? ' placeholder="'+item.placeholder+'"' : '';
 	var id = (item.id) ? ' id="'+item.id+'"' : '';
 	var type = (item.type) ? ' data-type="'+item.type+'"' : '';
 	var value = (item.value) ? ' value="'+item.value+'"' : '';
@@ -750,7 +824,7 @@ function buildFormItem(item){
 			return smallLabel+'<input data-changed="false" type="checkbox" class="js-switch'+extraClass+'" data-size="small" data-color="#99d683" data-secondary-color="#f96262"'+name+value+tof(item.value,'c')+id+disabled+type+attr+' /><input data-changed="false" type="hidden"'+name+'value="false">';
 			break;
 		case 'button':
-			return smallLabel+'<button class="btn btn-sm btn-success btn-rounded waves-effect waves-light b-none'+extraClass+'" '+href+attr+'type="button"><span class="btn-label"><i class="'+icon+'"></i></span><span lang="en">'+text+'</span></button>';
+			return smallLabel+'<button class="btn btn-sm btn-success btn-rounded waves-effect waves-light b-none'+extraClass+'" '+href+attr+' type="button"><span class="btn-label"><i class="'+icon+'"></i></span><span lang="en">'+text+'</span></button>';
 			break;
 		case 'blank':
 			return '';
@@ -775,7 +849,7 @@ function buildPluginsItem(array){
             <div class="panel bg-org panel-info">
                 <div class="panel-heading">
                     <span lang="en">`+v.name+` Settings</span>
-                    <button type="button" class="pull-right mfp-close m-r-20 m-t-10">&#215;</button>
+                    <button type="button" class="btn bg-org btn-circle close-popup pull-right"><i class="fa fa-times"></i> </button>
                     <button id="`+v.idPrefix+`-settings-page-save" onclick="submitSettingsForm('`+v.idPrefix+`-settings-page')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
                 </div>
                 <div class="panel-wrapper collapse in" aria-expanded="true">
@@ -891,13 +965,19 @@ function buildPluginsItem(array){
 }
 function loadMarketplace(type){
     marketplaceJSON(type).success(function(data) {
-        var json = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         switch (type) {
             case 'plugins':
-                loadMarketplacePluginsItems(json);
+                loadMarketplacePluginsItems(response);
                 break;
             case 'themes':
-                loadMarketplaceThemesItems(json);
+                loadMarketplaceThemesItems(response);
                 break;
             default:
         }
@@ -1173,7 +1253,13 @@ function removePlugin(plugin=null){
     message('Removing Plugin',plugin.name,activeInfo.settings.notifications.position,"#FFF","success","5000");
     plugin.downloadList = pluginFileList(plugin.files,plugin.github_folder,'plugins');
     organizrAPI('POST','api/?v1/plugin/remove',{plugin:plugin}).success(function(data) {
-        var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(html.data.substr(0, 7) == 'Success'){
             var newPlugins = html.data.split('!@!');
             activeInfo.settings.misc.installedPlugins = newPlugins[1];
@@ -1194,7 +1280,13 @@ function removeTheme(theme=null){
     message('Removing Plugin',theme.name,activeInfo.settings.notifications.position,"#FFF","success","5000");
     theme.downloadList = pluginFileList(theme.files,theme.github_folder,'plugins');
     organizrAPI('POST','api/?v1/theme/remove',{theme:theme}).success(function(data) {
-        var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(html.data.substr(0, 7) == 'Success'){
             var newThemes = html.data.split('!@!');
             activeInfo.settings.misc.installedThemes = newThemes[1];
@@ -1215,7 +1307,13 @@ function installPlugin(plugin=null){
     message('Installing Plugin',plugin.name,activeInfo.settings.notifications.position,"#FFF","success","5000");
     plugin.downloadList = pluginFileList(plugin.files,plugin.github_folder,'plugins');
     organizrAPI('POST','api/?v1/plugin/install',{plugin:plugin}).success(function(data) {
-        var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(html.data.substr(0, 7) == 'Success'){
             var newPlugins = html.data.split('!@!');
             activeInfo.settings.misc.installedPlugins = newPlugins[1];
@@ -1236,7 +1334,13 @@ function installTheme(theme=null){
     message('Installing Theme',theme.name,activeInfo.settings.notifications.position,"#FFF","success","5000");
     theme.downloadList = pluginFileList(theme.files,theme.github_folder,'themes');
     organizrAPI('POST','api/?v1/theme/install',{theme:theme}).success(function(data) {
-        var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         console.log(data);
         if(html.data.substr(0, 7) == 'Success'){
             var newThemes = html.data.split('!@!');
@@ -1319,7 +1423,7 @@ function buildHomepageItem(array){
                         <div class="panel bg-org panel-info">
                             <div class="panel-heading">
                                 <span lang="en">`+v.name+`</span>
-                                <button type="button" class="pull-right mfp-close m-r-20 m-t-10">&#215;</button>
+                                <button type="button" class="btn bg-org btn-circle close-popup pull-right"><i class="fa fa-times"></i> </button>
                                 <button id="homepage-`+v.name+`-form-save" onclick="submitSettingsForm('homepage-`+v.name+`-form')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
                             </div>
                             <div class="panel-wrapper collapse in" aria-expanded="true">
@@ -1339,7 +1443,13 @@ function buildHomepageItem(array){
 }
 function buildPlugins(){
 	organizrAPI('GET','api/?v1/settings/plugins/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#main-plugin-area').html(buildPluginsItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1347,7 +1457,13 @@ function buildPlugins(){
 }
 function buildHomepage(){
 	organizrAPI('GET','api/?v1/settings/homepage/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#settings-homepage-list').html(buildHomepageItem(response.data));
 		customHTMLoneEditor = ace.edit("customHTMLoneEditor");
 		var HTMLMode = ace.require("ace/mode/html").Mode;
@@ -1426,6 +1542,7 @@ function buildImageManagerViewItem(array){
 		$.each(array, function(i,v) {
 			var filepath = v.split("/");
 			var name = filepath[3].split(".");
+			var clipboardText = v.replace(/ /g,"%20");
 			imageListing += `
 			<div class="col-lg-1 col-md-1 col-sm-2 col-xs-4">
 				<div class="white-box bg-org m-0">
@@ -1433,7 +1550,7 @@ function buildImageManagerViewItem(array){
 						<div class="el-card-avatar el-overlay-1"> <img class="lazyload tabImages" data-src="`+v+`" width="22" height="22">
 							<div class="el-overlay">
 								<ul class="el-info">
-									<li><a class="btn default btn-outline clipboard p-5" data-clipboard-text="`+v+`" href="javascript:void(0);"><i class="ti-clipboard"></i></a></li>
+									<li><a class="btn default btn-outline clipboard p-5" data-clipboard-text="`+clipboardText+`" href="javascript:void(0);"><i class="ti-clipboard"></i></a></li>
 									<li><a class="btn default btn-outline deleteImage p-5" href="javascript:void(0);" data-image-path="`+v+`" data-image-name="`+name[0]+`"><i class="icon-trash"></i></a></li>
 								</ul>
 							</div>
@@ -1451,7 +1568,13 @@ function buildImageManagerViewItem(array){
 }
 function buildImageManagerView(){
 	organizrAPI('GET','api/?v1/image/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#settings-image-manager-list').html(buildImageManagerViewItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1459,7 +1582,13 @@ function buildImageManagerView(){
 }
 function buildCustomizeAppearance(){
 	organizrAPI('GET','api/?v1/customize/appearance').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#customize-appearance-form').html(buildFormGroup(response.data));
 		cssEditor = ace.edit("customCSSEditor");
 		var CssMode = ace.require("ace/mode/css").Mode;
@@ -1509,7 +1638,13 @@ function buildCustomizeAppearance(){
 }
 function buildSSO(){
 	organizrAPI('GET','api/?v1/sso').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#sso-form').html(buildFormGroup(response.data));
     }).fail(function (xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1517,7 +1652,13 @@ function buildSSO(){
 }
 function buildSettingsMain(){
 	organizrAPI('GET','api/?v1/settings/main').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#settings-main-form').html(buildFormGroup(response.data));
 		changeAuth();
 	}).fail(function(xhr) {
@@ -1526,7 +1667,13 @@ function buildSettingsMain(){
 }
 function buildUserManagement(){
 	organizrAPI('GET','api/?v1/user/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#manageUserTable').html(buildUserManagementItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1534,7 +1681,13 @@ function buildUserManagement(){
 }
 function buildGroupManagement(){
 	organizrAPI('GET','api/?v1/user/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#manageGroupTable').html(buildGroupManagementItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1542,7 +1695,13 @@ function buildGroupManagement(){
 }
 function buildTabEditor(){
 	organizrAPI('GET','api/?v1/tab/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#tabEditorTable').html(buildTabEditorItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1550,7 +1709,13 @@ function buildTabEditor(){
 }
 function buildCategoryEditor(){
 	organizrAPI('GET','api/?v1/tab/list').success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#categoryEditorTable').html(buildCategoryEditorItem(response.data));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -1558,8 +1723,14 @@ function buildCategoryEditor(){
 }
 function settingsAPI(post, callbacks=null){
 	organizrAPI('POST',post.api,post).success(function(data) {
-		var response = JSON.parse(data);
-		console.log(response);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
+		//console.log(response);
 		message(post.messageTitle,post.messageBody,activeInfo.settings.notifications.position,"#FFF","success","5000");
 		if(callbacks){ callbacks.fire(); }
 	}).fail(function(xhr) {
@@ -1610,7 +1781,13 @@ function removeFile(path,name){
 		};
 		ajaxloader(".content-wrap","in");
 		organizrAPI('POST','api/?v1/remove/file',post).success(function(data) {
-			var response = JSON.parse(data);
+            try {
+                var response = JSON.parse(data);
+            }catch(e) {
+                console.log(e + ' error: ' + data);
+                alert(e + ' error: ' + data);
+                return false;
+            }
 			if(response.data == true){
 				messageSingle('',window.lang.translate('Removed File')+' - '+name,activeInfo.settings.notifications.position,'#FFF','success','5000');
 			}else{
@@ -1640,7 +1817,13 @@ function updateUserInformation(){
 		};
 		ajaxloader(".content-wrap","in");
 		organizrAPI('POST','api/?v1/manage/user',post).success(function(data) {
-			var response = JSON.parse(data);
+            try {
+                var response = JSON.parse(data);
+            }catch(e) {
+                console.log(e + ' error: ' + data);
+                alert(e + ' error: ' + data);
+                return false;
+            }
 			if(response.data == true){
 				$.magnificPopup.close();
 				messageSingle('',window.lang.translate('User Info Updated'),activeInfo.settings.notifications.position,'#FFF','success','5000');
@@ -1657,7 +1840,13 @@ function twoFA(action, type, secret = null){
     switch(action){
         case 'activate':
             organizrAPI('POST','api/?v1/2fa/create',{type:type}).success(function(data) {
-                var html = JSON.parse(data);
+                try {
+                    var html = JSON.parse(data);
+                }catch(e) {
+                    console.log(e + ' error: ' + data);
+                    alert(e + ' error: ' + data);
+                    return false;
+                }
                 $('.twofa-modal-title').html(html.data.type);
                 $('.twofa-modal-image').html('<img class="center" src="'+html.data.url+'">');
                 $('.twofa-modal-secret').html(html.data.secret);
@@ -1668,7 +1857,13 @@ function twoFA(action, type, secret = null){
             break;
         case 'deactivate':
             organizrAPI('GET','api/?v1/2fa/remove').success(function(data) {
-                var html = JSON.parse(data);
+                try {
+                    var html = JSON.parse(data);
+                }catch(e) {
+                    console.log(e + ' error: ' + data);
+                    alert(e + ' error: ' + data);
+                    return false;
+                }
                 $('.2fa-list').replaceWith(buildTwoFA('internal'));
             }).fail(function(xhr) {
                 console.error("Organizr Function: Connection Failed");
@@ -1679,7 +1874,13 @@ function twoFA(action, type, secret = null){
             var code = $('#twofa-verify').val();
             if(type !== '' && secret !== '' && code !== ''){
                 organizrAPI('POST','api/?v1/2fa/verify',{type:type, secret:secret, code:code}).success(function(data) {
-                    var html = JSON.parse(data);
+                    try {
+                        var html = JSON.parse(data);
+                    }catch(e) {
+                        console.log(e + ' error: ' + data);
+                        alert(e + ' error: ' + data);
+                        return false;
+                    }
                     if(html.data == true){
                         message('2FA Success','Input Code Validated! Saving...',activeInfo.settings.notifications.position,"#FFF","success","5000");
                         $('#twofa-modal').modal('hide');
@@ -1696,8 +1897,14 @@ function twoFA(action, type, secret = null){
             break;
         case 'save':
             organizrAPI('POST','api/?v1/2fa/save',{type:type, secret:secret}).success(function(data) {
-                var html = JSON.parse(data);
-                console.log(html);
+                try {
+                    var html = JSON.parse(data);
+                }catch(e) {
+                    console.log(e + ' error: ' + data);
+                    alert(e + ' error: ' + data);
+                    return false;
+                }
+                //console.log(html);
                 if(html.data == true){
                     message('2FA Success','2FA Saved',activeInfo.settings.notifications.position,"#FFF","success","5000");
                     $('.2fa-list').replaceWith(buildTwoFA(type));
@@ -1775,7 +1982,13 @@ function buildTwoFA(current){
 }
 function revokeToken(token,id){
     organizrAPI('POST','api/?v1/token/revoke',{token:token}).success(function(data) {
-        var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(response.data == true){
             $('#token-'+id).fadeOut();
             message(window.lang.translate('Removed Token'),"",activeInfo.settings.notifications.position,"#FFF","success","3500");
@@ -2028,7 +2241,7 @@ function userMenu(user){
 					<li class="append-menu"><a class="inline-popups" href="#account-area" data-effect="mfp-zoom-out"><i class="ti-settings fa-fw"></i> <span lang="en">Account Settings</span></a></li>
 					<li class="divider" role="separator"></li>
 					<li><a href="javascript:void(0)" onclick="lock();"><i class="ti-lock fa-fw"></i> <span lang="en">Lock Screen</span></a></li>
-					<li><a href="javascript:void(0)" onclick="toggleDebug();"><i class="mdi mdi-bug fa-fw"></i> <span lang="en">Debug Area</span></a></li>
+					<li><a href="javascript:void(0)" onclick="toggleDebug();getDebugPreInfo();"><i class="mdi mdi-bug fa-fw"></i> <span lang="en">Debug Area</span></a></li>
 					<li><a href="javascript:void(0)" onclick="logout();"><i class="fa fa-sign-out fa-fw"></i> <span lang="en">Logout</span></a></li>
 				</ul><!-- /.dropdown-user -->
 			</li><!-- /.dropdown -->
@@ -2051,7 +2264,7 @@ function userMenu(user){
 		`;
 	}
 	$(menuList).appendTo('.navbar-right').html;
-	message("",window.lang.translate('Welcome')+" "+user.data.user.username,activeInfo.settings.notifications.position,"#FFF","success","3500");
+	//message("",window.lang.translate('Welcome')+" "+user.data.user.username,activeInfo.settings.notifications.position,"#FFF","success","3500");
 	console.log(window.lang.translate('Welcome')+" "+user.data.user.username);
 }
 function menuExtras(active){
@@ -2179,9 +2392,15 @@ function buildLogin(){
 	removeMenuActive();
 	$('#menu-login a').addClass('active');
 	organizrConnect('api/?v1/login_page').success(function(data) {
-		var json = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		console.log("Organizr Function: Opening Login Page");
-		$('.login-area').html(json.data);
+		$('.login-area').html(response.data);
 	}).fail(function(xhr) {
 		console.error("Organizr Function: Login Connection Failed");
 	});
@@ -2191,9 +2410,15 @@ function buildLockscreen(){
 	$("#preloader").fadeIn();
 	closeSideMenu();
 	organizrConnect('api/?v1/lockscreen').success(function(data) {
-		var json = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		console.log("Organizr Function: Adding Lockscreen");
-		$(json.data).appendTo($('body'));
+		$(response.data).appendTo($('body'));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: Lockscreen Connection Failed");
 	});
@@ -2505,7 +2730,7 @@ function submitSettingsForm(form){
 
     }
     if(size > 0){
-        console.log(submit);
+        //console.log(submit);
         settingsAPI(post,callbacks);
         $("#"+form+" :input").each(function(){
             var input = $(this);
@@ -2579,7 +2804,7 @@ function buildTR(array,type,badge){
 			listing += `
 			<tr>
 				<td  width="70"><span class="label label-`+badge+`"><span lang="en">`+type+`</span></span></td>
-				<td>`+v+`</td>
+				<td>`+updateIssueLink(v)+`</td>
 			</tr>
 			`;
 		});
@@ -2633,7 +2858,13 @@ function buildVersion(array){
 }
 function loadInternal(url,tabName){
 	organizrAPI('get',url).success(function(data) {
-		var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		$('#internal-'+tabName).html(html.data);
 	}).fail(function(xhr) {
 		console.error("Organizr Function: Connection Failed");
@@ -2641,32 +2872,50 @@ function loadInternal(url,tabName){
 }
 function loadSettingsPage(api,element,organizrFn){
 	organizrAPI('get',api).success(function(data) {
-		var json = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		console.log('Organizr Function: Loading '+organizrFn);
-		$(element).html(json.data);
+		$(element).html(response.data);
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
 }
 function updateCheck(){
 	githubVersions().success(function(data) {
-		var json = JSON.parse(data);
-		for (var a in reverseObject(json)){
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
+		for (var a in reverseObject(response)){
 			var latest = a;
 			break;
 		}
 		if(latest !== currentVersion){
 			console.log('Update Function: Update to '+latest+' is available');
-			message(window.lang.translate('Update Available'),latest+' '+window.lang.translate('is available, goto')+' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);$(\'#update-button\').click()"><span lang="en">Update Tab</span></a>',activeInfo.settings.notifications.position,'#FFF','update','60000');
+			message(window.lang.translate('Update Available'),latest+' '+window.lang.translate('is available, goto')+' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>',activeInfo.settings.notifications.position,'#FFF','update','60000');
 		}
-		$('#githubVersions').html(buildVersion(reverseObject(json)));
+		$('#githubVersions').html(buildVersion(reverseObject(response)));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: Github Connection Failed");
 	});
 }
 function sponsorLoad(){
     sponsorsJSON().success(function(data) {
-        var json = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         /*for (var a in reverseObject(json)){
             var latest = a;
             break;
@@ -2675,8 +2924,8 @@ function sponsorLoad(){
             console.log('Update Function: Update to '+latest+' is available');
             message(window.lang.translate('Update Available'),latest+' '+window.lang.translate('is available, goto')+' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);$(\'#update-button\').click()"><span lang="en">Update Tab</span></a>',activeInfo.settings.notifications.position,'#FFF','update','60000');
         }*/
-        $('#sponsorList').html(buildSponsor(json));
-        $('#sponsorListModals').html(buildSponsorModal(json));
+        $('#sponsorList').html(buildSponsor(response));
+        $('#sponsorListModals').html(buildSponsorModal(response));
         $('.sponsor-items').owlCarousel({
             nav:false,
             autoplay:true,
@@ -2796,43 +3045,75 @@ function updateNow(){
 	updateUpdateBar('Starting Download','5%');
 	messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
 	organizrAPI('POST','api/?v1/update', {branch:activeInfo.branch,stage:1}).success(function(data) {
-		var json = JSON.parse(data);
-		if(json.data == true){
-			updateUpdateBar('Starting Unzip','50%');
-			messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Update File Downloaded'),activeInfo.settings.notifications.position,'#FFF','success','60000');
-			organizrAPI('POST','api/?v1/update', {branch:activeInfo.branch,stage:2}).success(function(data) {
-				var json = JSON.parse(data);
-				if(json.data == true){
-					updateUpdateBar('Starting Copy','70%');
-					messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Update File Unzipped'),activeInfo.settings.notifications.position,'#FFF','success','60000');
-					organizrAPI('POST','api/?v1/update', {branch:activeInfo.branch,stage:3}).success(function(data) {
-						var json = JSON.parse(data);
-						if(json.data == true){
-							updateUpdateBar('Starting Cleanup','90%');
-							messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Update Files Copied'),activeInfo.settings.notifications.position,'#FFF','success','60000');
-							organizrAPI('POST','api/?v1/update', {branch:activeInfo.branch,stage:4}).success(function(data) {
-								var json = JSON.parse(data);
-								if(json.data == true){
-									updateUpdateBar('Restarting Organizr in','100%', true);
-									messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Update Cleanup Finished'),activeInfo.settings.notifications.position,'#FFF','success','60000');
-								}else{
-									message('',window.lang.translate('Update Cleanup Failed'),activeInfo.settings.notifications.position,'#FFF','error','10000');
-								}
-							}).fail(function(xhr) {
-								console.error("Organizr Function: API Connection Failed");
-							});
-						}else{
-							message('',window.lang.translate('Update File Copy Failed'),activeInfo.settings.notifications.position,'#FFF','error','10000');
-						}
-					}).fail(function(xhr) {
-						console.error("Organizr Function: API Connection Failed");
-					});
-				}else{
-					message('',window.lang.translate('Update File Unzip Failed'),activeInfo.settings.notifications.position,'#FFF','error','10000');
-				}
-			}).fail(function(xhr) {
-				console.error("Organizr Function: API Connection Failed");
-			});
+        try {
+            var json = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
+		if(json.data == true) {
+            updateUpdateBar('Starting Unzip', '50%');
+            messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'), window.lang.translate('Update File Downloaded'), activeInfo.settings.notifications.position, '#FFF', 'success', '60000');
+            organizrAPI('POST', 'api/?v1/update', {branch: activeInfo.branch, stage: 2}).success(function (data) {
+                try {
+                    var json = JSON.parse(data);
+                }catch(e) {
+                    console.log(e + ' error: ' + data);
+                    alert(e + ' error: ' + data);
+                    return false;
+                }
+                if (json.data == true) {
+                    updateUpdateBar('Starting Copy', '70%');
+                    messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'), window.lang.translate('Update File Unzipped'), activeInfo.settings.notifications.position, '#FFF', 'success', '60000');
+                    organizrAPI('POST', 'api/?v1/update', {
+                        branch: activeInfo.branch,
+                        stage: 3
+                    }).success(function (data) {
+                        try {
+                            var json = JSON.parse(data);
+                        }catch(e) {
+                            console.log(e + ' error: ' + data);
+                            alert(e + ' error: ' + data);
+                            return false;
+                        }
+                        if (json.data == true) {
+                            updateUpdateBar('Starting Cleanup', '90%');
+                            messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'), window.lang.translate('Update Files Copied'), activeInfo.settings.notifications.position, '#FFF', 'success', '60000');
+                            organizrAPI('POST', 'api/?v1/update', {
+                                branch: activeInfo.branch,
+                                stage: 4
+                            }).success(function (data) {
+                                try {
+                                    var json = JSON.parse(data);
+                                }catch(e) {
+                                    console.log(e + ' error: ' + data);
+                                    alert(e + ' error: ' + data);
+                                    return false;
+                                }
+                                if (json.data == true) {
+                                    updateUpdateBar('Restarting Organizr in', '100%', true);
+                                    messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'), window.lang.translate('Update Cleanup Finished'), activeInfo.settings.notifications.position, '#FFF', 'success', '60000');
+                                } else {
+                                    message('', window.lang.translate('Update Cleanup Failed'), activeInfo.settings.notifications.position, '#FFF', 'error', '10000');
+                                }
+                            }).fail(function (xhr) {
+                                console.error("Organizr Function: API Connection Failed");
+                            });
+                        } else {
+                            message('', window.lang.translate('Update File Copy Failed'), activeInfo.settings.notifications.position, '#FFF', 'error', '10000');
+                        }
+                    }).fail(function (xhr) {
+                        console.error("Organizr Function: API Connection Failed");
+                    });
+                } else {
+                    message('', window.lang.translate('Update File Unzip Failed'), activeInfo.settings.notifications.position, '#FFF', 'error', '10000');
+                }
+            }).fail(function (xhr) {
+                console.error("Organizr Function: API Connection Failed");
+            });
+        }else if(json.data == 'permissions'){
+            message('',window.lang.translate('Organizr does not have permissions to download the update'),activeInfo.settings.notifications.position,'#FFF','error','10000');
 		}else{
 			message('',window.lang.translate('Update File Download Failed'),activeInfo.settings.notifications.position,'#FFF','error','10000');
 		}
@@ -2909,7 +3190,13 @@ function changeSettingsMenu(path){
 }
 function buildWizard(){
 	organizrConnect('api/?v1/wizard_page').success(function(data) {
-		var json = JSON.parse(data);
+        try {
+            var json = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		console.log("Organizr Function: Starting Install Wizard");
 		$(json.data).appendTo($('.organizr-area'));
 	}).fail(function(xhr) {
@@ -2919,7 +3206,13 @@ function buildWizard(){
 }
 function buildDependencyCheck(orgdata){
 	organizrConnect('api/?v1/dependencies_page').success(function(data) {
-		var json = JSON.parse(data);
+        try {
+            var json = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		console.log("Organizr Function: Starting Dependencies Check");
 		$(json.data).appendTo($('.organizr-area'));
 		$(buildBrowserInfo()).appendTo($('#browser-info'));
@@ -3197,13 +3490,14 @@ function loadAppearance(appearance){
     if(appearance.customCss !== ''){
         $('#custom-css').html(appearance.customCss);
     }
+}
+function loadCustomJava(appearance){
     if(appearance.customThemeJava !== ''){
         $('#custom-theme-javascript').html(appearance.customThemeJava);
     }
     if(appearance.customJava !== ''){
         $('#custom-javascript').html(appearance.customJava);
     }
-
 }
 function clearForm(form){
 	$(form+" input[type=text]").each(function() {
@@ -3415,7 +3709,7 @@ function buildStreamItem(array,source){
 		<div id="`+v.session+`" class="white-popup mfp-with-anim mfp-hide">
 			<div class="col-md-6 col-md-offset-3">
 				<div class="white-box m-b-0 bg-info">
-					<h3 class="text-white box-title m-b-0">`+v.sessionType+`<span class="pull-right"><i class="mdi mdi-network-upload"></i> `+v.bandwidth+` kbps</span></h3>
+					<h3 class="text-white box-title m-b-0">`+v.sessionType+`<span class="pull-right"><i class="mdi mdi-network-upload"></i> `+v.bandwidth+` kbps <button type="button" class="btn bg-org btn-circle close-popup m-l-10"><i class="fa fa-times"></i> </button></span></h3>
 				</div>
 				<div class="white-box">
 					<div class="row">
@@ -3547,6 +3841,7 @@ function buildRequestItem(array, extra=null){
 				var badge = '';
 				var badge2 = '';
 				var bg = (v.background.includes('.')) ? v.background : 'plugins/images/cache/no-np.png';
+				v.user = (activeInfo.settings.homepage.ombi.alias) ? v.userAlias : v.user;
 				//Set Status
 				var status = (v.approved) ? '<span class="badge bg-org m-r-10" lang="en">Approved</span>' : '<span class="badge bg-danger m-r-10" lang="en">Unapproved</span>';
 				status += (v.available) ? '<span class="badge bg-org m-r-10" lang="en">Available</span>' : '<span class="badge bg-danger m-r-10" lang="en">Unavailable</span>';
@@ -3588,7 +3883,7 @@ function buildRequestItem(array, extra=null){
 									<div class="col-xs-2 p-10">`+adminFunctions+`</div>
 									<div class="col-xs-10">
 										<h2 class="m-b-0 font-medium pull-right text-right">
-											`+v.title+`<br>
+											`+v.title+`<button type="button" class="btn bg-org btn-circle close-popup m-l-10"><i class="fa fa-times"></i> </button><br>
 											<small class="m-t-0 text-white">`+user+`</small><br>
 											`+buildYoutubeLink(v.title+' '+v.type)+`
 										</h2>
@@ -4061,8 +4356,14 @@ function ombiActions(id,action,type){
 	ajaxloader('.preloader-'+id,'in');
     ajaxloader('.mfp-content .white-popup .col-md-8 .white-box .user-bg','in');
 	organizrAPI('POST','api/?v1/ombi',{id:id, action:action, type:type}).success(function(data) {
-		var response = JSON.parse(data);
-		console.log(response.data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
+		//console.log(response.data);
 		if(response.data !== false){
             if(action == 'delete'){
                 homepageRequests();
@@ -4070,7 +4371,13 @@ function ombiActions(id,action,type){
                 message(window.lang.translate('Deleted Request Item'),'',activeInfo.settings.notifications.position,"#FFF",'success',"3500");
                 return true;
             }
-            var responseData = JSON.parse(response.data.bd);
+            try {
+                var responseData = JSON.parse(response.data.bd);
+            }catch(e) {
+                console.log(e + ' error: ' + response.data.bd);
+                alert(e + ' error: ' + response.data.bd);
+                return false;
+            }
             console.log(responseData);
             var responseMessage = (responseData.isError == true) ? responseData.errorMessage : 'Success';
             var responseType = (responseData.isError == true) ? 'error' : 'success';
@@ -4151,6 +4458,7 @@ function buildDownloaderItem(array, source, type='none'){
     //console.log(array);
     var queue = '';
     var history = '';
+    var count = 0;
 	switch (source) {
 		case 'sabnzbd':
             if(array.content.queueItems.queue.paused){
@@ -4166,6 +4474,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
             $.each(array.content.queueItems.queue.slots, function(i,v) {
+                count = count + 1;
                 var action = (v.status == "Downloading") ? 'pause' : 'resume';
                 var actionIcon = (v.status == "Downloading") ? 'pause' : 'play';
                 queue += `
@@ -4208,6 +4517,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
             $.each(array.content.queueItems.result, function(i,v) {
+                count = count + 1;
                 var action = (v.Status == "Downloading") ? 'pause' : 'resume';
                 var actionIcon = (v.Status == "Downloading") ? 'pause' : 'play';
                 var percent = Math.floor((v.FileSizeMB - v.RemainingSizeMB) * 100 / v.FileSizeMB);
@@ -4254,6 +4564,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
             $.each(array.content.queueItems.arguments.torrents, function(i,v) {
+                count = count + 1;
                 switch (v.status) {
                     case 7:
                     case '7':
@@ -4313,6 +4624,7 @@ function buildDownloaderItem(array, source, type='none'){
             }
             //console.log(array);
             $.each(array.content.queueItems, function(i,v) {
+                count = count + 1;
                 var percent = Math.floor((v.downloaded / v.size) * 100);
                 var size = v.size != -1 ? humanFileSize(v.size,false) : "?";
                 var upload = v.seed !== '' ? humanFileSize(v.seed,true) : "0 B";
@@ -4344,6 +4656,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
             $.each(array.content.queueItems.arguments.torrents, function(i,v) {
+                count = count + 1;
                 switch (v.state) {
                     case 'stalledDL':
                         var status = 'No Peers';
@@ -4398,6 +4711,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
             $.each(array.content.queueItems, function(i,v) {
+                count = count + 1;
                 var percent = Math.floor(v.progress);
                 var size = v.total_size != -1 ? humanFileSize(v.total_size,true) : "?";
                 var upload = v.upload_payload_rate != -1 ? humanFileSize(v.upload_payload_rate,true) : "?";
@@ -4429,6 +4743,7 @@ function buildDownloaderItem(array, source, type='none'){
     if(history !== ''){
         $('.'+source+'-history').html(history);
     }
+    $('#count-'+source).html(count);
 }
 function buildDownloader(source){
     var queueButton = 'QUEUE';
@@ -4547,7 +4862,7 @@ function buildDownloaderCombined(source){
 
     }
     var mainMenu = `<ul class="nav customtab nav-tabs combinedMenuList" role="tablist">`;
-    var addToMainMenu = `<li role="presentation" class="`+active+`"><a onclick="homepageDownloader('`+source+`')" href="#combined-`+source+`" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class=""><img src="./plugins/images/tabs/`+source+`.png" class="homepageImageTitle"></span></a></li>`;
+    var addToMainMenu = `<li role="presentation" class="`+active+`"><a onclick="homepageDownloader('`+source+`')" href="#combined-`+source+`" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true"><span class=""><img src="./plugins/images/tabs/`+source+`.png" class="homepageImageTitle"><span class="badge bg-org downloaderCount" id="count-`+source+`"></span> </span></a></li>`;
     var listing = '';
     var headerAlt = '';
     var header = '';
@@ -4650,7 +4965,7 @@ function buildMetadata(array, source){
 				`+rating+`
 				<div class="col-xs-10">
 	                <h2 class="m-b-0 font-medium pull-right text-right">
-						`+v.title+`<br>
+						`+v.title+`<button type="button" class="btn bg-org btn-circle close-popup m-l-10"><i class="fa fa-times"></i> </button><br>
 						<small class="m-t-0 text-white">`+v.metadata.tagline+`</small><br>
 						<button class="btn waves-effect waves-light openTab bg-`+source+`" type="button" data-tab-name="`+v.tabName+`" data-type="`+v.type+`" data-open-tab="`+v.openTab+`" data-url="`+v.address+`" href="javascript:void(0);"> <i class="fa mdi mdi-`+source+` fa-2x"></i> </button>
 						`+buildYoutubeLink(v.title+' '+v.metadata.year+' '+v.type)+`
@@ -4709,7 +5024,7 @@ function buildCalendarMetadata(array){
 				`+rating+`
 				<div class="col-xs-10">
 	                <h2 class="m-b-0 font-medium pull-right text-right">
-						`+array.topTitle+`<br>
+						`+array.topTitle+`<button type="button" class="btn bg-org btn-circle close-popup m-l-10"><i class="fa fa-times"></i> </button><br>
 						<small class="m-t-0 text-white">`+array.bottomTitle+`</small><br>
 						`+buildYoutubeLink(array.topTitle)+`
 					</h2>
@@ -4754,7 +5069,13 @@ function homepageDownloader(type, timeout){
 
 	}
 	organizrAPI('POST','api/?v1/homepage/connect',{action:action}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		//document.getElementById('homepageOrder'+type).innerHTML = '';
 		if(response.data !== null){
 			buildDownloaderItem(response.data, type);
@@ -4779,7 +5100,13 @@ function homepageStream(type, timeout){
 
 	}
 	organizrAPI('POST','api/?v1/homepage/connect',{action:action}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		document.getElementById('homepageOrder'+type+'nowplaying').innerHTML = '';
 		$('#homepageOrder'+type+'nowplaying').html(buildStream(response.data, type));
 	}).fail(function(xhr) {
@@ -4803,7 +5130,13 @@ function homepageRecent(type, timeout){
 
 	}
 	organizrAPI('POST','api/?v1/homepage/connect',{action:action}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		document.getElementById('homepageOrder'+type+'recent').innerHTML = '';
 		$('#homepageOrder'+type+'recent').html(buildRecent(response.data, type));
 		$('.recent-items').owlCarousel({
@@ -4831,7 +5164,13 @@ function homepagePlaylist(type, timeout=30000){
 
 	}
 	organizrAPI('POST','api/?v1/homepage/connect',{action:action}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		document.getElementById('homepageOrder'+type+'playlist').innerHTML = '';
 		$('#homepageOrder'+type+'playlist').html(buildPlaylist(response.data, type));
 		$('.playlist-items').owlCarousel({
@@ -4849,7 +5188,13 @@ function homepagePlaylist(type, timeout=30000){
 function homepageRequests(timeout){
 	var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.ombiRefresh;
 	organizrAPI('POST','api/?v1/homepage/connect',{action:'getRequests'}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
 		document.getElementById('homepageOrderombi').innerHTML = '';
 		if(response.data.content !== false){
 			$('#homepageOrderombi').html(buildRequest(response.data));
@@ -4871,7 +5216,13 @@ function homepageRequests(timeout){
 function testAPIConnection(service){
     messageSingle('',' Testing now...',activeInfo.settings.notifications.position,'#FFF','info','10000');
     organizrAPI('POST','api/?v1/test/api/connection',{action:service}).success(function(data) {
-        var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(response.data == true){
             messageSingle('',' API Connection Success',activeInfo.settings.notifications.position,'#FFF','success','10000');
         }else{
@@ -4889,10 +5240,17 @@ function homepageCalendar(timeout){
         $('.fc-toolbar').addClass('fc-alternate');
     }
 	organizrAPI('POST','api/?v1/homepage/connect',{action:'getCalendar'}).success(function(data) {
-		var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         $('#calendar').fullCalendar('removeEvents');
         $('#calendar').fullCalendar('addEventSource', response.data.events);
         $('#calendar').fullCalendar('addEventSource', response.data.ical);
+        $('#calendar').fullCalendar('today');
 		response = '';
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
@@ -5045,7 +5403,7 @@ function oAuthSuccess(type,token){
             $('#login-username-Input').addClass('hidden');
             $('#login-password-Input').addClass('hidden');
             $('#oAuth-div').removeClass('hidden');
-            $('.login-button').trigger('click');
+            $('.login-button').first().trigger('click');
             break;
         default:
             break;
@@ -5197,7 +5555,13 @@ function importUsers(type){
     $('.importUsersButton').attr('disabled', true);
     messageSingle('',window.lang.translate('Importing Users'),activeInfo.settings.notifications.position,'#FFF','success','5000');
     organizrAPI('POST','api/?v1/import/users',{type:type}).success(function(data) {
-        var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if(response.data !== false){
             messageSingle('',window.lang.translate('Imported [' + response.data + '] Users'),activeInfo.settings.notifications.position,'#FFF','success','5000');
             $('.importUsersButton').attr('disabled', false);
@@ -5396,7 +5760,13 @@ function getPingList(arrayItems){
 }
 function pingUpdate(pingList,timeout){
     organizrAPI('POST','api/?v1/ping/list',{pingList:pingList}).success(function(data) {
-        var response = JSON.parse(data);
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         if (response.data !== false || response.data !== null) {
             $('.menu-category-ping').each(function( index ) {
                 $(this).attr('data-good','0');
@@ -5801,7 +6171,13 @@ function lock(){
         return false;
     }
     organizrAPI('POST','api/?v1/lock','').success(function(data) {
-        var html = JSON.parse(data);
+        try {
+            var html = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            alert(e + ' error: ' + data);
+            return false;
+        }
         console.log(html);
         if(html.data == true){
             location.reload();
@@ -5853,6 +6229,37 @@ function orgErrorCode(code){
         default:
 
     }
+}
+function clickPath(type,path=null){
+    switch(type){
+        case 'c':
+        case 'custom':
+            if(path !== null){
+                if(typeof path == 'object'){
+                    $.each(path, function(i,v) {
+                        $(v).trigger('click');
+                    });
+                }else{
+                    $(path).trigger('click');
+                }
+            }else{
+                return null;
+            }
+            break;
+        case 'update':
+            $('#settings-main-system-settings-anchor').trigger('click');
+            $('#update-button').trigger('click');
+            break;
+        case 'sso':
+            $('#settings-main-system-settings-anchor').trigger('click');
+            $('#settings-settings-sso-anchor').trigger('click');
+            break;
+        default:
+            return null;
+    }
+}
+function toggleWritableFolders(){
+    $('.folders-writable').toggleClass('hidden');
 }
 function launch(){
 	organizrConnect('api/?v1/launch_organizr').success(function (data) {
@@ -5922,6 +6329,7 @@ function launch(){
                     organizrSpecialSettings(json);
                     getPingList(json);
                 }
+                loadCustomJava(json.appearance);
 				break;
 			default:
 				console.error('Organizr Function: Action not set or defined');
