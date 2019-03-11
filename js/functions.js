@@ -14,6 +14,12 @@ lang.init({
 	allowCookieOverride: true
 });
 var timeouts = {};
+var increment = 0;
+var tabInformation = {};
+var tabActionsList = [];
+tabActionsList['refresh'] = [];
+tabActionsList['close'] = [];
+
 // Start Organizr
 $(document).ready(function () {
     launch();
@@ -192,7 +198,70 @@ function isNumberKey(evt) {
         return false;
     return true;
 }
+function setTabInfo(tab,action,value){
+    if(tab == 'Organizr-Support'){
+        return false;
+    }
+    if(tab !== null && action !== null && value !== null){
+        switch(action){
+            case 'active':
+                $.each(tabInformation, function(i,v) {
+                    tabInformation[i]['active'] = false;
+                });
+                break;
+            default:
+            //nada
+        }
+        tabInformation[tab][action] = value;
+    }else{
+        return false;
+    }
+}
+function tabTimerAction(){
+    if(tabActionsList.close.length > 0){
+        $.each(tabActionsList.close, function(i,v) {
+            var tab = v.tab;
+            var minutes = (tabInformation[tab]['tabInfo']['timeout_ms'] / 1000) /60;
+            var process = false;
+            if(tabInformation[tab]['loaded']){
+                if(tabInformation[tab]['active'] && idleTime >= 1){
+                    process = true;
+                }
+                if(tabInformation[tab]['active'] === false){
+                    process = true;
+                }
+                if(process){
+                    tabInformation[tab]['increments'] = tabInformation[tab]['increments'] + 1;
+                    if(tabInformation[tab]['increments'] >= minutes){
+                        tabInformation[tab]['increments'] = 0;
+                        console.log('Tab Function: Auto Closing tab: '+tab);
+                        closeTab(tab);
+                    }
+                }
+
+            }
+        });
+    }
+    if(tabActionsList.refresh.length > 0){
+        $.each(tabActionsList.refresh, function(i,v) {
+            var tab = v.tab;
+            var minutes = (tabInformation[tab]['tabInfo']['timeout_ms'] / 1000) /60;
+            var process = false;
+            if(tabInformation[tab]['loaded']){
+                tabInformation[tab]['increments'] = tabInformation[tab]['increments'] + 1;
+                if(tabInformation[tab]['increments'] >= minutes){
+                    tabInformation[tab]['increments'] = 0;
+                    console.log('Tab Function: Auto Reloading tab: '+tab);
+                    reloadTab(tab, tabInformation[tab]['tabInfo']['type']);
+                }
+            }
+        });
+    }
+
+}
 function timerIncrement() {
+    increment = increment + 1;
+    tabTimerAction();
     //check for cookieExpiry
     if(hasCookie){
         if(getCookie('organizrToken')){
@@ -330,7 +399,7 @@ function noTabs(arrayItems){
                 var response = JSON.parse(data);
             }catch(e) {
                 console.log(e + ' error: ' + data);
-                alert(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                 return false;
             }
 			console.log("Organizr Function: No Tabs Available");
@@ -368,7 +437,7 @@ function logout(){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		if(html.data == true){
@@ -474,12 +543,15 @@ function switchTab(tab, type){
 			if(newTab.hasClass('loaded')){
 				console.log('Tab Function: Switching to tab: '+tab);
 				newTab.addClass("show").removeClass('hidden');
+                setTabInfo(cleanClass(tab),'active',true);
 			}else{
 				$("#preloader").fadeIn();
 				console.log('Tab Function: Loading new tab for: '+tab);
 				$('#menu-'+tab+' a').children().addClass('tabLoaded');
 				newTab.addClass("show loaded").removeClass('hidden');
 				loadInternal(tabURL,cleanClass(tab));
+                setTabInfo(cleanClass(tab),'active',true);
+                setTabInfo(cleanClass(tab),'loaded',true);
 				$("#preloader").fadeOut();
 			}
 			break;
@@ -493,12 +565,15 @@ function switchTab(tab, type){
 			if(newTab.hasClass('loaded')){
 				console.log('Tab Function: Switching to tab: '+tab);
 				newTab.addClass("show").removeClass('hidden');
+                setTabInfo(cleanClass(tab),'active',true);
 			}else{
 				$("#preloader").fadeIn();
 				console.log('Tab Function: Loading new tab for: '+tab);
 				$('#menu-'+tab+' a').children().addClass('tabLoaded');
 				newTab.addClass("show loaded").removeClass('hidden');
 				$(buildFrame(tab,tabURL)).appendTo(newTab);
+                setTabInfo(cleanClass(tab),'active',true);
+                setTabInfo(cleanClass(tab),'loaded',true);
 				$("#preloader").fadeOut();
 			}
             $('#frame-'+tab).focus();
@@ -544,8 +619,54 @@ function popTab(tab, type){
 			console.error('Tab Function: Action not set');
 	}
 }
-function closeTab(tab, type){
+function closeTab(tab){
+    tab = cleanClass(tab);
+    // check if current tab?
+    if($('.active-tab-'+tab).length > 0){
+        closeCurrentTab();
+    }else{
+        if($('.frame-'+tab).hasClass('loaded')){
+            var type = $('#menu-'+tab).attr('type');
+           switch (type) {
+               case 0:
+               case '0':
+               case 'internal':
+                   // quick check if homepage
+                   if($('#menu-'+tab).attr('data-url') == 'api/?v1/homepage/page'){
+                       console.log('Organizr Function - Clearing All Homepage AJAX calls');
+                       clearAJAX('homepage');
+                   }
+                   console.log('Tab Function: Closing tab: '+tab);
+                   $('#internal-'+cleanClass(tab)).html('');
+                   $('#menu-'+cleanClass(tab)+' a').removeClass("active");
+                   $('#menu-'+tab+' a').children().removeClass('tabLoaded');
+                   $('#internal-'+cleanClass(tab)).removeClass("loaded show");
+                   $('#menu-'+cleanClass(tab)).removeClass("active");
+                   setTabInfo(cleanClass(tab),'loaded',false);
+                   break;
+               case 1:
+               case '1':
+               case 'iframe':
+                   console.log('Tab Function: Closing tab: '+tab);
+                   $('#menu-'+cleanClass(tab)+' a').removeClass("active");
+                   $('#menu-'+tab+' a').children().removeClass('tabLoaded');
+                   $('#container-'+cleanClass(tab)).removeClass("loaded show");
+                   $('#frame-'+cleanClass(tab)).remove();
+                   setTabInfo(cleanClass(tab),'loaded',false);
+                   break;
+               case 2:
+               case 3:
+               case '2':
+               case '3':
+               case '_blank':
+               case 'popout':
 
+                   break;
+               default:
+                   console.error('Tab Function: Action not set');
+           }
+        }
+    }
 }
 function reloadTab(tab, type){
 	$("#preloader").fadeIn();
@@ -637,12 +758,19 @@ function closeCurrentTab(){
 		case '0':
 		case 'internal':
 			var tab = $('.internal-listing').find('.show').attr('data-name');
+            // quick check if homepage
+            if($('#menu-'+cleanClass(tab)).attr('data-url') == 'api/?v1/homepage/page'){
+                console.log('Organizr Function - Clearing All Homepage AJAX calls');
+                clearAJAX('homepage');
+            }
 			console.log('Tab Function: Closing tab: '+tab);
 			$('#internal-'+cleanClass(tab)).html('');
 			$('#menu-'+cleanClass(tab)+' a').removeClass("active");
 			$('#menu-'+tab+' a').children().removeClass('tabLoaded');
 			$('#internal-'+cleanClass(tab)).removeClass("loaded show");
 			$('#menu-'+cleanClass(tab)).removeClass("active");
+            setTabInfo(cleanClass(tab),'loaded',false);
+            setTabInfo(cleanClass(tab),'active',false);
 			loadNextTab();
 			break;
 		case 1:
@@ -654,6 +782,8 @@ function closeCurrentTab(){
 			$('#menu-'+tab+' a').children().removeClass('tabLoaded');
 			$('#container-'+cleanClass(tab)).removeClass("loaded show");
 			$('#frame-'+cleanClass(tab)).remove();
+            setTabInfo(cleanClass(tab),'loaded',false);
+            setTabInfo(cleanClass(tab),'active',false);
 			loadNextTab();
 			break;
 		case 2:
@@ -673,7 +803,7 @@ function tabActions(event,name, type){
 	if(event.ctrlKey){
 		popTab(cleanClass(name), type);
 	}else if(event.altKey){
-		console.log('alt key');
+        closeTab(name);
 	}else if(event.shiftKey){
 		reloadTab(cleanClass(name), type);
 	}else{
@@ -753,15 +883,17 @@ function accordionOptions(options, parentID){
 	});
 	return accordionOptions;
 }
-function buildAccordion(array){
+function buildAccordion(array, open = false){
     var items = '';
     var mainId = createRandomString(10);
     $.each(array, function(i,v) {
+        var collapse = (open && i == 0) ? 'collapse in' : 'collapse';
+        var collapsed = (open && i == 0) ? '' : 'collapsed';
         var id = mainId + '-' + i;
         items += `
         <div class="panel">
-            <div class="panel-heading bg-org" id="`+id+`-heading" role="tab"> <a class="panel-title collapsed" data-toggle="collapse" href="#`+id+`-collapse" data-parent="#`+mainId+`" aria-expanded="false" aria-controls="`+id+`-collapse"> `+v.title+` </a> </div>
-            <div class="panel-collapse collapse" id="`+id+`-collapse" aria-labelledby="`+id+`-heading" role="tabpanel">
+            <div class="panel-heading bg-org" id="`+id+`-heading" role="tab"> <a class="panel-title `+collapsed+`" data-toggle="collapse" href="#`+id+`-collapse" data-parent="#`+mainId+`" aria-expanded="false" aria-controls="`+id+`-collapse"> `+v.title+` </a> </div>
+            <div class="panel-collapse `+collapse+`" id="`+id+`-collapse" aria-labelledby="`+id+`-heading" role="tabpanel">
                 <div class="panel-body"> `+v.body+` </div>
             </div>
         </div>
@@ -898,11 +1030,11 @@ function buildPluginsItem(array){
 	inactivePlugins = (inactivePlugins.length !== 0) ? inactivePlugins : '<h2 class="text-center" lang="en">Everything Active</h2>';
 	var panes = `
 	<ul class="nav customtab2 nav-tabs" role="tablist">
-		<li onclick="changeSettingsMenu('Settings::Plugins::Active')" role="presentation" class="active"><a href="#settings-plugins-active" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-layout-tab-v"></i></span><span class="hidden-xs" lang="en">Active</span></a>
+		<li onclick="changeSettingsMenu('Settings::Plugins::Active')" role="presentation" class="active"><a href="#settings-plugins-active" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-file"></i></span><span class="hidden-xs" lang="en">Active</span></a>
 		</li>
-		<li onclick="changeSettingsMenu('Settings::Plugins::Inactive')" role="presentation" class=""><a href="#settings-plugins-inactive" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-layout-list-thumb"></i></span><span class="hidden-xs" lang="en">Inactive</span></a>
+		<li onclick="changeSettingsMenu('Settings::Plugins::Inactive')" role="presentation" class=""><a href="#settings-plugins-inactive" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-zip"></i></span><span class="hidden-xs" lang="en">Inactive</span></a>
 		</li>
-		<li onclick="changeSettingsMenu('Settings::Plugins::Marketplace');loadMarketplace('plugins');" role="presentation" class=""><a href="#settings-plugins-marketplace" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-layout-list-thumb"></i></span><span class="hidden-xs" lang="en">Marketplace</span></a>
+		<li onclick="changeSettingsMenu('Settings::Plugins::Marketplace');loadMarketplace('plugins');" role="presentation" class=""><a href="#settings-plugins-marketplace" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-shopping-cart-full"></i></span><span class="hidden-xs" lang="en">Marketplace</span></a>
 		</li>
 	</ul>
 	<!-- Tab panes -->
@@ -969,7 +1101,7 @@ function loadMarketplace(type){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         switch (type) {
@@ -1257,7 +1389,7 @@ function removePlugin(plugin=null){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(html.data.substr(0, 7) == 'Success'){
@@ -1284,7 +1416,7 @@ function removeTheme(theme=null){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(html.data.substr(0, 7) == 'Success'){
@@ -1311,7 +1443,7 @@ function installPlugin(plugin=null){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(html.data.substr(0, 7) == 'Success'){
@@ -1338,7 +1470,7 @@ function installTheme(theme=null){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         console.log(data);
@@ -1447,7 +1579,7 @@ function buildPlugins(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#main-plugin-area').html(buildPluginsItem(response.data));
@@ -1461,7 +1593,7 @@ function buildHomepage(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#settings-homepage-list').html(buildHomepageItem(response.data));
@@ -1572,7 +1704,7 @@ function buildImageManagerView(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#settings-image-manager-list').html(buildImageManagerViewItem(response.data));
@@ -1586,7 +1718,7 @@ function buildCustomizeAppearance(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#customize-appearance-form').html(buildFormGroup(response.data));
@@ -1642,7 +1774,7 @@ function buildSSO(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#sso-form').html(buildFormGroup(response.data));
@@ -1656,7 +1788,7 @@ function buildSettingsMain(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#settings-main-form').html(buildFormGroup(response.data));
@@ -1671,7 +1803,7 @@ function buildUserManagement(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#manageUserTable').html(buildUserManagementItem(response.data));
@@ -1685,7 +1817,7 @@ function buildGroupManagement(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#manageGroupTable').html(buildGroupManagementItem(response.data));
@@ -1699,7 +1831,7 @@ function buildTabEditor(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#tabEditorTable').html(buildTabEditorItem(response.data));
@@ -1713,7 +1845,7 @@ function buildCategoryEditor(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#categoryEditorTable').html(buildCategoryEditorItem(response.data));
@@ -1727,7 +1859,7 @@ function settingsAPI(post, callbacks=null){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		//console.log(response);
@@ -1785,7 +1917,7 @@ function removeFile(path,name){
                 var response = JSON.parse(data);
             }catch(e) {
                 console.log(e + ' error: ' + data);
-                alert(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                 return false;
             }
 			if(response.data == true){
@@ -1821,7 +1953,7 @@ function updateUserInformation(){
                 var response = JSON.parse(data);
             }catch(e) {
                 console.log(e + ' error: ' + data);
-                alert(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                 return false;
             }
 			if(response.data == true){
@@ -1844,7 +1976,7 @@ function twoFA(action, type, secret = null){
                     var html = JSON.parse(data);
                 }catch(e) {
                     console.log(e + ' error: ' + data);
-                    alert(e + ' error: ' + data);
+                    orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                     return false;
                 }
                 $('.twofa-modal-title').html(html.data.type);
@@ -1861,7 +1993,7 @@ function twoFA(action, type, secret = null){
                     var html = JSON.parse(data);
                 }catch(e) {
                     console.log(e + ' error: ' + data);
-                    alert(e + ' error: ' + data);
+                    orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                     return false;
                 }
                 $('.2fa-list').replaceWith(buildTwoFA('internal'));
@@ -1878,7 +2010,7 @@ function twoFA(action, type, secret = null){
                         var html = JSON.parse(data);
                     }catch(e) {
                         console.log(e + ' error: ' + data);
-                        alert(e + ' error: ' + data);
+                        orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                         return false;
                     }
                     if(html.data == true){
@@ -1901,7 +2033,7 @@ function twoFA(action, type, secret = null){
                     var html = JSON.parse(data);
                 }catch(e) {
                     console.log(e + ' error: ' + data);
-                    alert(e + ' error: ' + data);
+                    orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                     return false;
                 }
                 //console.log(html);
@@ -1986,7 +2118,7 @@ function revokeToken(token,id){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(response.data == true){
@@ -2222,6 +2354,7 @@ function accountManager(user){
 }
 function userMenu(user){
 	var menuList = '<li class="hidden-xs" onclick="toggleFullScreen();"><a class="waves-effect waves-light"> <i class="ti-fullscreen fullscreen-icon"></i></a></li>';
+	var showDebug = (activeInfo.settings.misc.debugArea) ? '<li><a href="javascript:void(0)" onclick="toggleDebug();getDebugPreInfo();"><i class="mdi mdi-bug fa-fw"></i> <span lang="en">Debug Area</span></a></li>' : '';
 	menuList += buildLanguage();
 	if (user.data.user.loggedin === true) {
 		menuList += `
@@ -2241,7 +2374,7 @@ function userMenu(user){
 					<li class="append-menu"><a class="inline-popups" href="#account-area" data-effect="mfp-zoom-out"><i class="ti-settings fa-fw"></i> <span lang="en">Account Settings</span></a></li>
 					<li class="divider" role="separator"></li>
 					<li><a href="javascript:void(0)" onclick="lock();"><i class="ti-lock fa-fw"></i> <span lang="en">Lock Screen</span></a></li>
-					<li><a href="javascript:void(0)" onclick="toggleDebug();getDebugPreInfo();"><i class="mdi mdi-bug fa-fw"></i> <span lang="en">Debug Area</span></a></li>
+					` + showDebug + `
 					<li><a href="javascript:void(0)" onclick="logout();"><i class="fa fa-sign-out fa-fw"></i> <span lang="en">Logout</span></a></li>
 				</ul><!-- /.dropdown-user -->
 			</li><!-- /.dropdown -->
@@ -2313,9 +2446,9 @@ function buildInternalContainer(name,url,type){
 	return `<div id="internal-`+cleanClass(name)+`" data-type="`+type+`" class="internal-container frame-`+cleanClass(name)+` hidden" data-url="`+url+`" data-name="`+cleanClass(name)+`"></div>`;
 }
 function buildMenuList(name,url,type,icon,ping=null){
-    var ping = (ping !== null) ? `<small class="menu-`+cleanClass(ping)+`-ping-ms hidden-xs label label-rouded label-inverse pull-right hidden">
+    var ping = (ping !== null) ? `<small class="menu-`+cleanClass(ping)+`-ping-ms hidden-xs label label-rouded label-inverse pull-right pingTime hidden">
 </small><div class="menu-`+cleanClass(ping)+`-ping" data-tab-name="`+name+`" data-previous-state=""></div>` : '';
-	return `<li id="menu-`+cleanClass(name)+`" type="`+type+`" data-url="`+url+`"><a class="waves-effect" onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu">`+name+`</span>`+ping+`</a></li>`;
+	return `<li class="allTabsList" id="menu-`+cleanClass(name)+`" data-tab-name="`+cleanClass(name)+`" type="`+type+`" data-url="`+url+`"><a class="waves-effect" onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu elip sidebar-tabName">`+name+`</span>`+ping+`</a></li>`;
 }
 function tabProcess(arrayItems) {
 	var iFrameList = '';
@@ -2325,6 +2458,19 @@ function tabProcess(arrayItems) {
 	if (Array.isArray(arrayItems['data']['tabs']) && arrayItems['data']['tabs'].length > 0) {
 		$.each(arrayItems['data']['tabs'], function(i,v) {
 			if(v.enabled === 1 && v.access_url){
+                tabInformation[cleanClass(v.name)] = {"active":false,"loaded":false,"increments":0,"tabInfo":v};
+                switch(v.timeout){
+                    case 1:
+                    case '1':
+                        tabActionsList['close'].push({"tab":cleanClass(v.name),"action_ms":v.timeout_ms});
+                        break;
+                    case 2:
+                    case '2':
+                        tabActionsList['refresh'].push({"tab":cleanClass(v.name),"action_ms":v.timeout_ms});
+                        break;
+                    default:
+                        //nada
+                }
                 if(v.default === 1){
                     defaultTabName = cleanClass(v.name);
                     defaultTabType = v.type;
@@ -2337,7 +2483,11 @@ function tabProcess(arrayItems) {
                         $(menuList).appendTo($('#side-menu'));
                     }
                 }else{
-                    $(menuList).prependTo($('.category-'+v.category_id));
+                    if(activeInfo.settings.misc.unsortedTabs === 'top'){
+                        $(menuList).prependTo($('.category-'+v.category_id));
+                    }else if(activeInfo.settings.misc.unsortedTabs === 'bottom') {
+                        $(menuList).appendTo($('.category-'+v.category_id));
+                    }
                 }
                 $('#side-menu').metisMenu({ toggle: false });
 				switch (v.type) {
@@ -2396,7 +2546,7 @@ function buildLogin(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		console.log("Organizr Function: Opening Login Page");
@@ -2414,7 +2564,7 @@ function buildLockscreen(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		console.log("Organizr Function: Adding Lockscreen");
@@ -2651,7 +2801,7 @@ function buildTabEditorItem(array){
 		var buttonDisabled = v.url.indexOf('/settings/') > 0 ? 'disabled' : '';
         var typeDisabled = v.url.indexOf('/?v1/') > 0 ? 'disabled' : '';
 		tabList += `
-		<tr class="tabEditor" data-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-local-url="`+v.url_local+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`">
+		<tr class="tabEditor" data-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-local-url="`+v.url_local+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`" data-tab-action-type="`+v.timeout+`" data-tab-action-time="`+v.timeout_ms+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].id" value="`+v.id+`">
 			<input type="hidden" class="form-control order" name="tab[`+v.id+`].order" value="`+v.order+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].originalOrder" value="`+v.order+`">
@@ -2660,6 +2810,8 @@ function buildTabEditorItem(array){
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].url" value="`+v.url+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].ping_url" value="`+v.ping_url+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].image" value="`+v.image+`">
+			<input type="hidden" class="form-control" name="tab[`+v.id+`].timeout" value="`+v.timeout+`">
+			<input type="hidden" class="form-control" name="tab[`+v.id+`].timeout_ms" value="`+v.timeout_ms+`">
 			<td style="text-align:center" class="text-center el-element-overlay">
 				<div class="el-card-item p-0">
 					<div class="el-card-avatar el-overlay-1 m-0">
@@ -2862,7 +3014,7 @@ function loadInternal(url,tabName){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		$('#internal-'+tabName).html(html.data);
@@ -2876,7 +3028,7 @@ function loadSettingsPage(api,element,organizrFn){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		console.log('Organizr Function: Loading '+organizrFn);
@@ -2891,21 +3043,74 @@ function updateCheck(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		for (var a in reverseObject(response)){
 			var latest = a;
 			break;
 		}
-		if(latest !== currentVersion){
-			console.log('Update Function: Update to '+latest+' is available');
-			message(window.lang.translate('Update Available'),latest+' '+window.lang.translate('is available, goto')+' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>',activeInfo.settings.notifications.position,'#FFF','update','60000');
-		}
+		if(latest !== currentVersion) {
+            console.log('Update Function: Update to ' + latest + ' is available');
+            if (activeInfo.settings.misc.docker === false) {
+                message(window.lang.translate('Update Available'), latest + ' ' + window.lang.translate('is available, goto') + ' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '60000');
+            }
+        }
 		$('#githubVersions').html(buildVersion(reverseObject(response)));
 	}).fail(function(xhr) {
 		console.error("Organizr Function: Github Connection Failed");
 	});
+}
+function newsLoad(){
+    newsJSON().success(function(data) {
+        try {
+            var response = JSON.parse(data);
+            var items = [];
+            $.each(response, function(i,v) {
+                var newBody = `
+                <h5 class="pull-left">`+moment(v.date).format('LLL')+`</h5>
+                <h5 class="pull-right">`+v.author+`</h5>
+                <div class="clearfix"></div>
+                `+((v.subTitle) ? '<h5>' + v.subTitle + '</h5>' : '' )+`
+                <p>`+v.body+`</p>
+                `;
+                items[i] = {
+                    title:v.title,
+                    body:newBody
+                }
+            });
+            var body = buildAccordion(items, true);
+            $('#organizrNewsPanel').html(body);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+            return false;
+        }
+    }).fail(function(xhr) {
+        console.error("Organizr Function: Github Connection Failed");
+    });
+}
+function checkCommitLoad(){
+    if(activeInfo.settings.misc.docker && activeInfo.settings.misc.githubCommit !== 'n/a') {
+        getLatestCommitJSON().success(function (data) {
+            try {
+                var latest = data.sha.toString().trim();
+                var current = activeInfo.settings.misc.githubCommit.toString().trim();
+                var link = 'https://github.com/causefx/Organizr/compare/'+current+'...'+latest;
+                if(latest !== current) {
+                    message(window.lang.translate('Update Available'),' <a href="'+link+'" target="_blank"><span lang="en">Compare Difference</span></a> <span lang="en">or</span> <a href="javascript:void(0)" onclick="updateNow()"><span lang="en">Update Now</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '600000');
+                }else{
+                    console.log('Organizr Docker - Up to date');
+                }
+            } catch (e) {
+                console.log(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+                return false;
+            }
+        }).fail(function (xhr) {
+            console.error("Organizr Function: Github Connection Failed");
+        });
+    }
 }
 function sponsorLoad(){
     sponsorsJSON().success(function(data) {
@@ -2913,7 +3118,7 @@ function sponsorLoad(){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         /*for (var a in reverseObject(json)){
@@ -3039,7 +3244,52 @@ function countdown(remaining) {
 	$('#update-seconds').text(remaining);
     setTimeout(function(){ countdown(remaining - 1); }, 1000);
 }
+function dockerUpdate(){
+    if(activeInfo.settings.misc.docker){
+        $(updateBar()).appendTo('.organizr-area');
+        updateUpdateBar('Starting Download','20%');
+        messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
+        organizrAPI('GET','api/?v1/docker/update').success(function(data) {
+            try {
+                var json = JSON.parse(data);
+            }catch(e) {
+                console.log(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+                return false;
+            }
+            updateUpdateBar('Restarting Organizr in', '100%', true);
+            messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),json.data,activeInfo.settings.notifications.position,'#FFF','success','60000');
+        }).fail(function(xhr) {
+            console.error("Organizr Function: Reboot Failed");
+        });
+    }
+}
+function windowsUpdate(){
+    if(activeInfo.serverOS == 'win'){
+        $(updateBar()).appendTo('.organizr-area');
+        updateUpdateBar('Starting Download','20%');
+        messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
+        organizrAPI('GET','api/?v1/windows/update').success(function(data) {
+            try {
+                var json = JSON.parse(data);
+            }catch(e) {
+                console.log(e + ' error: ' + data);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+                return false;
+            }
+            updateUpdateBar('Restarting Organizr in', '100%', true);
+            messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),json.data,activeInfo.settings.notifications.position,'#FFF','success','60000');
+        }).fail(function(xhr) {
+            console.error("Organizr Function: Reboot Failed");
+        });
+    }
+}
 function updateNow(){
+    clearAJAX();
+    if(activeInfo.settings.misc.docker){
+        dockerUpdate();
+        return false;
+    }
 	console.log('Organizr Function: Starting Update Process');
 	$(updateBar()).appendTo('.organizr-area');
 	updateUpdateBar('Starting Download','5%');
@@ -3049,7 +3299,7 @@ function updateNow(){
             var json = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		if(json.data == true) {
@@ -3060,7 +3310,7 @@ function updateNow(){
                     var json = JSON.parse(data);
                 }catch(e) {
                     console.log(e + ' error: ' + data);
-                    alert(e + ' error: ' + data);
+                    orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                     return false;
                 }
                 if (json.data == true) {
@@ -3074,7 +3324,7 @@ function updateNow(){
                             var json = JSON.parse(data);
                         }catch(e) {
                             console.log(e + ' error: ' + data);
-                            alert(e + ' error: ' + data);
+                            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                             return false;
                         }
                         if (json.data == true) {
@@ -3088,7 +3338,7 @@ function updateNow(){
                                     var json = JSON.parse(data);
                                 }catch(e) {
                                     console.log(e + ' error: ' + data);
-                                    alert(e + ' error: ' + data);
+                                    orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
                                     return false;
                                 }
                                 if (json.data == true) {
@@ -3122,7 +3372,14 @@ function updateNow(){
 	});
 }
 function organizrAPI(type,path,data=null){
-	//console.log('Organizr API: Calling API: '+path);
+	var timeout = 10000;
+    switch(path){
+        case 'api/?v1/windows/update':
+            timeout = 120000;
+            break;
+        default:
+            timeout = 10000;
+    }
 	switch (type) {
 		case 'get':
 		case 'GET':
@@ -3133,12 +3390,13 @@ function organizrAPI(type,path,data=null){
 				beforeSend: function(request) {
 					request.setRequestHeader("Token", activeInfo.token);
 				},
-				timeout: 10000,
+				timeout: timeout,
 			});
 			break;
 		case 'post':
 		case 'POST':
 		case 'p':
+		    data.formKey = local('g','formKey');
 			return $.ajax({
 				url:path,
 				method:"POST",
@@ -3160,7 +3418,17 @@ function githubVersions() {
 }
 function sponsorsJSON() {
     return $.ajax({
-        url: "https://raw.githubusercontent.com/causefx/Organizr/"+activeInfo.branch+"/js/sponsors.json",
+        url: "https://raw.githubusercontent.com/causefx/Organizr/v2-develop/js/sponsors.json",
+    });
+}
+function newsJSON() {
+    return $.ajax({
+        url: "https://raw.githubusercontent.com/causefx/Organizr/v2-develop/js/news.json",
+    });
+}
+function getLatestCommitJSON() {
+    return $.ajax({
+        url: "https://api.github.com/repos/causefx/Organizr/commits/"+activeInfo.branch,
     });
 }
 function marketplaceJSON(type) {
@@ -3194,7 +3462,7 @@ function buildWizard(){
             var json = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		console.log("Organizr Function: Starting Install Wizard");
@@ -3210,7 +3478,7 @@ function buildDependencyCheck(orgdata){
             var json = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		console.log("Organizr Function: Starting Dependencies Check");
@@ -3838,6 +4106,7 @@ function buildRequestItem(array, extra=null){
 	$.each(array, function(i,v) {
 			if(extra == null){
                 var approveID = (v.type == 'tv') ? v.id : v.request_id;
+                var iconType = (v.type == 'tv') ? 'fa-tv ' : 'fa-film';
 				var badge = '';
 				var badge2 = '';
 				var bg = (v.background.includes('.')) ? v.background : 'plugins/images/cache/no-np.png';
@@ -3875,6 +4144,7 @@ function buildRequestItem(array, extra=null){
 						<div class="inside-request-div `+badge+`"></div>
 					</div>
 					<div class="hover-homepage-item"></div>
+					<span class="elip request-title-`+v.type+`"><i class="fa `+iconType+`"></i></span>
 					<span class="elip recent-title">`+v.title+user2+`</span>
 					<div id="request-`+v.id+`" class="white-popup mfp-with-anim mfp-hide">
 						<div class="col-md-8 col-md-offset-2">
@@ -4360,7 +4630,7 @@ function ombiActions(id,action,type){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		//console.log(response.data);
@@ -4375,7 +4645,7 @@ function ombiActions(id,action,type){
                 var responseData = JSON.parse(response.data.bd);
             }catch(e) {
                 console.log(e + ' error: ' + response.data.bd);
-                alert(e + ' error: ' + response.data.bd);
+                orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(response.data.bd));
                 return false;
             }
             console.log(responseData);
@@ -4967,7 +5237,7 @@ function buildMetadata(array, source){
 	                <h2 class="m-b-0 font-medium pull-right text-right">
 						`+v.title+`<button type="button" class="btn bg-org btn-circle close-popup m-l-10"><i class="fa fa-times"></i> </button><br>
 						<small class="m-t-0 text-white">`+v.metadata.tagline+`</small><br>
-						<button class="btn waves-effect waves-light openTab bg-`+source+`" type="button" data-tab-name="`+v.tabName+`" data-type="`+v.type+`" data-open-tab="`+v.openTab+`" data-url="`+v.address+`" href="javascript:void(0);"> <i class="fa mdi mdi-`+source+` fa-2x"></i> </button>
+						<button class="btn waves-effect waves-light openTab bg-`+source+`" type="button" data-tab-name="`+cleanClass(v.tabName)+`" data-type="`+v.type+`" data-open-tab="`+v.openTab+`" data-url="`+v.address+`" href="javascript:void(0);"> <i class="fa mdi mdi-`+source+` fa-2x"></i> </button>
 						`+buildYoutubeLink(v.title+' '+v.metadata.year+' '+v.type)+`
 					</h2>
 	            </div>
@@ -5073,7 +5343,7 @@ function homepageDownloader(type, timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		//document.getElementById('homepageOrder'+type).innerHTML = '';
@@ -5083,7 +5353,7 @@ function homepageDownloader(type, timeout){
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
-	var timeoutTitle = type+'-Downloader';
+	var timeoutTitle = type+'-Downloader-Homepage';
 	if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
 	timeouts[timeoutTitle] = setTimeout(function(){ homepageDownloader(type,timeout); }, timeout);
 }
@@ -5104,7 +5374,7 @@ function homepageStream(type, timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		document.getElementById('homepageOrder'+type+'nowplaying').innerHTML = '';
@@ -5112,7 +5382,7 @@ function homepageStream(type, timeout){
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
-	var timeoutTitle = type+'-Stream';
+	var timeoutTitle = type+'-Stream-Homepage';
 	if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
 	timeouts[timeoutTitle] = setTimeout(function(){ homepageStream(type,timeout); }, timeout);
 }
@@ -5134,7 +5404,7 @@ function homepageRecent(type, timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		document.getElementById('homepageOrder'+type+'recent').innerHTML = '';
@@ -5150,7 +5420,7 @@ function homepageRecent(type, timeout){
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
-	var timeoutTitle = type+'-Recent';
+	var timeoutTitle = type+'-Recent-Homepage';
 	if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
 	timeouts[timeoutTitle] = setTimeout(function(){ homepageRecent(type,timeout); }, timeout);
 }
@@ -5168,7 +5438,7 @@ function homepagePlaylist(type, timeout=30000){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		document.getElementById('homepageOrder'+type+'playlist').innerHTML = '';
@@ -5192,7 +5462,7 @@ function homepageRequests(timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
 		document.getElementById('homepageOrderombi').innerHTML = '';
@@ -5210,8 +5480,8 @@ function homepageRequests(timeout){
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
-	if(typeof timeouts['ombi'] !== 'undefined'){ clearTimeout(timeouts['ombi']); }
-	timeouts['ombi'] = setTimeout(function(){ homepageRequests(timeout); }, timeout);
+	if(typeof timeouts['ombi-Homepage'] !== 'undefined'){ clearTimeout(timeouts['ombi-Homepage']); }
+	timeouts['ombi-Homepage'] = setTimeout(function(){ homepageRequests(timeout); }, timeout);
 }
 function testAPIConnection(service){
     messageSingle('',' Testing now...',activeInfo.settings.notifications.position,'#FFF','info','10000');
@@ -5220,7 +5490,7 @@ function testAPIConnection(service){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(response.data == true){
@@ -5244,7 +5514,7 @@ function homepageCalendar(timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         $('#calendar').fullCalendar('removeEvents');
@@ -5255,8 +5525,8 @@ function homepageCalendar(timeout){
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
-	if(typeof timeouts['calendar'] !== 'undefined'){ clearTimeout(timeouts['calendar']); }
-	timeouts['calendar'] = setTimeout(function(){ homepageCalendar(timeout); }, timeout);
+	if(typeof timeouts['calendar-Homepage'] !== 'undefined'){ clearTimeout(timeouts['calendar-Homepage']); }
+	timeouts['calendar-Homepage'] = setTimeout(function(){ homepageCalendar(timeout); }, timeout);
 }
 // Thanks Swifty!
 function PopupCenter(url, title, w, h) {
@@ -5426,7 +5696,13 @@ function clearAJAX(id='all'){
 		$.each(timeouts, function(i,v) {
 			clearTimeout(timeouts[i]);
 		});
-	}else{
+	}else if(id == 'homepage'){
+        $.each(timeouts, function(i,v) {
+            if(i.indexOf('-Homepage') > 0 ){
+                clearTimeout(timeouts[i]);
+            }
+        })
+    }else{
 		clearTimeout(timeouts[id]);
 	}
 }
@@ -5559,7 +5835,7 @@ function importUsers(type){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if(response.data !== false){
@@ -5764,7 +6040,7 @@ function pingUpdate(pingList,timeout){
             var response = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         if (response.data !== false || response.data !== null) {
@@ -6175,7 +6451,7 @@ function lock(){
             var html = JSON.parse(data);
         }catch(e) {
             console.log(e + ' error: ' + data);
-            alert(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
         console.log(html);
@@ -6260,6 +6536,29 @@ function clickPath(type,path=null){
 }
 function toggleWritableFolders(){
     $('.folders-writable').toggleClass('hidden');
+}
+function getAllTabNames(){
+    var allTabs = $('.allTabsList');
+    var tabList = [];
+    $.each(allTabs, function(i,v) {
+        tabList[i] = v.getAttribute('data-tab-name').toLowerCase();
+    });
+    return tabList;
+}
+function checkIfTabNameExists(tabName){
+    if (getAllTabNames().indexOf(tabName.toLowerCase()) == -1) {
+        return false;
+    }else{
+        return true;
+    }
+}
+function orgErrorAlert(error){
+    $('#main-org-error-container').addClass('show');
+    $('#main-org-error').html(error);
+}
+function closeOrgError(){
+    $('#main-org-error-container').removeClass('show');
+    $('#main-org-error').html('');
 }
 function launch(){
 	organizrConnect('api/?v1/launch_organizr').success(function (data) {

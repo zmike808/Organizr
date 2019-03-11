@@ -33,10 +33,10 @@
     <link href="css/animate.css" rel="stylesheet">
     <link href="css/simplebar.css" rel="stylesheet">
     <link href="css/plyr.css" rel="stylesheet">
-    <link id="style" href="css/dark.css?v=<?php echo $GLOBALS['installedVersion']; ?>" rel="stylesheet">
-    <link href="css/organizr.min.css?v=<?php echo $GLOBALS['installedVersion']; ?>" rel="stylesheet">
+    <link id="style" href="css/dark.css?v=<?php echo $GLOBALS['fileHash']; ?>" rel="stylesheet">
+    <link href="css/organizr.min.css?v=<?php echo $GLOBALS['fileHash']; ?>" rel="stylesheet">
 	<?php echo pluginFiles('css'); ?>
-    <link id="theme" href="css/themes/Organizr.css?v=<?php echo $GLOBALS['installedVersion']; ?>" rel="stylesheet">
+    <link id="theme" href="css/themes/Organizr.css?v=<?php echo $GLOBALS['fileHash']; ?>" rel="stylesheet">
     <style id="user-appearance"></style>
     <style id="custom-theme-css"></style>
     <style id="custom-css"></style>
@@ -88,6 +88,21 @@
         <!-- /.navbar-header -->
         <!-- /.navbar-top-links -->
         <!-- /.navbar-static-side -->
+        <div class="dropdown-menu animated bounceInDown bg-danger text-white" id="main-org-error-container">
+            <div class="mega-dropdown-menu row">
+                <div class="col-lg-12 mb-4">
+                    <h3 class="mb-3 pull-left"><i class="fa fa-close text-white"></i>&nbsp; <span lang="en">An Error Occured</span>
+                    </h3>
+                    <h3 class="mb-3 pull-right mouse" onclick="closeOrgError();"><i
+                                class="fa fa-check text-success"></i>&nbsp;
+                        <span lang="en">Close Error</span>
+                    </h3>
+                    <br/>
+                    <br/>
+                    <div class="m-t-20" id="main-org-error"></div>
+                </div>
+            </div>
+        </div>
     </nav>
     <!-- End Top Navigation -->
     <!-- ============================================================== -->
@@ -158,6 +173,9 @@
                                                     <li><a onclick="orgDebugList('activeInfo.settings.sso.misc');"
                                                            href="javascript:void(0)"
                                                            lang="en">Misc SSO</a></li>
+                                                    <li><a onclick="orgDebugList('activeInfo.settings.misc.schema');"
+                                                           href="javascript:void(0)"
+                                                           lang="en">DB Schema</a></li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -268,12 +286,13 @@
 <script src="js/plyr.js"></script>
 <script src="js/simplebar.js"></script>
 <script src="https://apis.google.com/js/client.js?onload=googleApiClientReady"></script>
-<script src="js/functions.js?v=<?php echo $GLOBALS['installedVersion']; ?>"></script>
-<script src="js/custom.min.js?v=<?php echo $GLOBALS['installedVersion']; ?>"></script>
+<script src="js/functions.js?v=<?php echo $GLOBALS['fileHash']; ?>"></script>
+<script src="js/custom.min.js?v=<?php echo $GLOBALS['fileHash']; ?>"></script>
 <script id="custom-theme-javascript"></script>
 <script id="custom-javascript"></script>
 <script src="https://js.pusher.com/4.1/pusher.min.js"></script>
-<?php echo pluginFiles('js'); ?>
+<?php echo pluginFiles('js');
+echo formKey(); ?>
 </body>
 
 </html>

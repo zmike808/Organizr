@@ -843,14 +843,33 @@ $(document).on("click", ".deleteTab", function () {
         }
     });
 });
+function convertMsToMinutes(ms){
+    if(ms === false || ms === 0 || ms === "0"){
+        return 0;
+    }else{
+        return (ms / 1000) / 60;
+    }
+}
+function convertMinutesToMs(minutes){
+    if(minutes === false || minutes === 0 || minutes === "0"){
+        return 0;
+    }else{
+        return (minutes * 1000) * 60;
+    }
+}
 //EDIT TAB GET ID
 $(document).on("click", ".editTabButton", function () {
+    //tabActionTime
+    //tabActionType
     $('#edit-tab-form [name=tabName]').val($(this).parent().parent().attr("data-name"));
+    $('#originalTabName').html($(this).parent().parent().attr("data-name"));
     $('#edit-tab-form [name=tabURL]').val($(this).parent().parent().attr("data-url"));
     $('#edit-tab-form [name=tabLocalURL]').val($(this).parent().parent().attr("data-local-url"));
     $('#edit-tab-form [name=pingURL]').val($(this).parent().parent().attr("data-ping-url"));
     $('#edit-tab-form [name=tabImage]').val($(this).parent().parent().attr("data-image"));
     $('#edit-tab-form [name=id]').val($(this).parent().parent().attr("data-id"));
+    $('#edit-tab-form [name=tabActionTime]').val(convertMsToMinutes($(this).parent().parent().attr("data-tab-action-time")));
+    $('#edit-tab-form [name=tabActionType]').val($(this).parent().parent().attr("data-tab-action-type"));
     if( $(this).parent().parent().attr("data-url").indexOf('/?v') > 0){
         $('#edit-tab-form [name=tabURL]').prop('disabled', 'true');
     }else{
@@ -859,6 +878,7 @@ $(document).on("click", ".editTabButton", function () {
 });
 //EDIT TAB
 $(document).on("click", ".editTab", function () {
+    var originalTabName = $('#originalTabName').html();
     //Create POST Array
     var post = {
         action:'editTab',
@@ -869,6 +889,8 @@ $(document).on("click", ".editTab", function () {
         tabURL:$('#edit-tab-form [name=tabURL]').val(),
         tabLocalURL:$('#edit-tab-form [name=tabLocalURL]').val(),
         pingURL:$('#edit-tab-form [name=pingURL]').val(),
+        tabActionTime:convertMinutesToMs($('#edit-tab-form [name=tabActionTime]').val()),
+        tabActionType:$('#edit-tab-form [name=tabActionType]').val(),
         messageTitle:'',
         messageBody:'Edited Tab '+$('#edit-tab-form [name=tabName]').val(),
         error:'Organizr Function: Tab Editor API Connection Failed'
@@ -884,6 +906,10 @@ $(document).on("click", ".editTab", function () {
     }
     if ((typeof post.tabURL == 'undefined' || post.tabURL == '') && (typeof post.tabLocalURL == 'undefined' || post.tabLocalURL == '')) {
         message('Edit Tab Error',' Please set a Tab URL or Local URL',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+    }
+    if(checkIfTabNameExists(post.tabName) && originalTabName !== post.tabName){
+        message('Edit Tab Error',' Tab name already used',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+        return false;
     }
     if(post.id !== '' && post.tabName !== '' && post.tabImage !== ''){
         var callbacks = $.Callbacks();
@@ -905,6 +931,8 @@ $(document).on("click", ".addNewTab", function () {
         tabURL:$('#new-tab-form [name=tabURL]').val(),
         tabLocalURL:$('#new-tab-form [name=tabLocalURL]').val(),
         pingURL:$('#new-tab-form [name=pingURL]').val(),
+        tabActionTime:convertMinutesToMs($('#new-tab-form [name=tabActionTime]').val()),
+        tabActionType:$('#new-tab-form [name=tabActionType]').val(),
         tabGroupID:1,
         tabEnabled:0,
         tabDefault:0,
@@ -924,6 +952,10 @@ $(document).on("click", ".addNewTab", function () {
     }
     if (typeof post.tabImage == 'undefined' || post.tabImage == '') {
         message('New Tab Error',' Please set a Tab Image',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+    }
+    if(checkIfTabNameExists(post.tabName)){
+        message('New Tab Error',' Tab name already used',activeInfo.settings.notifications.position,'#FFF','warning','5000');
+        return false;
     }
     if(post.tabOrder !== '' && post.tabName !== '' && (post.tabURL !== '' || post.tabLocalURL !== '') && post.tabImage !== '' ){
         var callbacks = $.Callbacks();
@@ -1855,4 +1887,9 @@ $(document).on('click', ".close-popup", function(){
 $(document).on('click', ".copyDebug", function(){
     copyDebug();
     $('#internal-clipboard').trigger('click');
+});
+// AccountDN change
+$(document).on("keyup", "#authBackendHostPrefix-input, #authBackendHostSuffix-input", function () {
+    var newDN = $('#authBackendHostPrefix-input').val() + 'TestAcct' + $('#authBackendHostSuffix-input').val();
+    $('#accountDN').html(newDN);
 });

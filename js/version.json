@@ -113,9 +113,51 @@
   },
   "2.0.0-beta.960": {
     "date": "2019-01-27 00:20",
-    "title": "Some fixes before v.20",
+    "title": "Some fixes before v2.0",
     "new": "Update page includes links to GH issues|Cleaner Login|Default to Plex Auth if enabled on login screen",
     "fixed": "Fix Plex oAuth remains enabled when switching back to Organizr DB only (#1046)|Fix Ombi if no TV Requests again|2FA box includes login button now",
     "notes": "Hoping for a smooth release of 2.0 this coming week"
+  },
+  "2.0.0-beta.980": {
+    "date": "2019-02-22 15:30",
+    "title": "Little things here and there",
+    "new": "Added news section to settings page|Add new pathsWritable function for multiple paths|Added global variable for main path and api path|Added update check for folder permissions|Added login with plex email and plex username for oauth|Added option for Ombi Homepage pulls Ombi Username instead of alias (#1052)|Added error catching on json parse for ajax calls|Add Pi-Hole image (#1060)|Added DB Path to folder check|Disable update and download if using docker container|Added Close Tab to Alt + Click|Disable branch change for docker users",
+    "fixed": "Fix update button on message not working if not on settings page (#1050)|Fix js reload button on new tab creation|Finally fix ombi limit to user|Fix tab edit/create when using same tab name already in use (#1066)|Embi local API requires exact case for username (#1061)|Fix edit tab name if exists",
+    "notes": "Remove constant welcome message - Added welcome message only on login|Clean up org errors a little bit"
+  },
+  "2.0.0-beta.990": {
+    "date": "2019-02-28 21:20",
+    "title": "Yes, this is the last beta",
+    "new": "Ability to update if using Docker|More Calendar info|Feature to disable/restrict debug area (#1080)|Added DB Schema to debug|Added docker commit info to see if new update is out",
+    "fixed": "rTorrent different endpoints (#1072)|Changing username breaks Tautulli SSO autologin for guest users (#1017)|Issue with menu CSS (#1075)|Unsorted Tab Placement option reverses sort for all tabs (#1037)|Work on LDAP, Should work with AD, OpenLDAP, FreeIPA (#1074)|Plex share invite placeholder (#1000)",
+    "notes": "Beta? What? No More?"
+  },
+  "2.0.0": {
+    "date": "2019-03-01 16:30",
+    "title": "Finally Version 2.0",
+    "new": "",
+    "fixed": "",
+    "notes": "Please report bugs in GitHub issues page"
+  },
+  "2.0.20": {
+    "date": "2019-03-04 23:00",
+    "title": "Security Fixes",
+    "new": "",
+    "fixed": "Security issue around CRFS and file upload and delete (#1086)|Clicking on iCal Calendar Item Locks Up GUI (#1092)|Custom js and css ace boxes not encoding correctly|Possibility for co-admin to become admin|Branch being disabled",
+    "notes": "Please report bugs in GitHub issues page"
+  },
+  "2.0.32": {
+    "date": "2019-03-05 19:50",
+    "title": "Auto-Reload and Auto-Close",
+    "new": "Auto Close and Auto reload feature (#1071)",
+    "fixed": "Undefined index dbLocation (#1093)|Disable show update to new version if on docker|Ombi sso only works with full email as user id (#1047)|Clear ajax calls if homepage is closed|Hardcoded news and sponsors branch",
+    "notes": "Please report bugs in GitHub issues page"
+  },
+  "2.0.49": {
+    "date": "2019-03-08 19:00",
+    "title": "Plex Recent is back",
+    "new": "Requests now show type of request on hover",
+    "fixed": "Plex homepage items don't redirect to Plex when the tab name has special characters (#1096)|Work around for Plex recentlyAdded api call (#1069)|FormKey issues|Calendar misc text issue",
+    "notes": "Updated language translations|Please report bugs in GitHub issues page"
   }
 }

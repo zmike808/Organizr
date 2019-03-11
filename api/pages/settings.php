@@ -6,6 +6,8 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
         updateCheck();
         authDebugCheck();
         sponsorLoad();
+        newsLoad();
+        checkCommitLoad();
         [].slice.call(document.querySelectorAll(\'.sttabs\')).forEach(function(el) {
             new CBPFWTabs(el);
         });
@@ -74,7 +76,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                         <ul class="nav customtab2 nav-tabs" role="tablist">
                             <li onclick="changeSettingsMenu(\'Settings::Customize::Appearance\');loadSettingsPage(\'api/?v1/settings/customize/appearance\',\'#settings-customize-appearance\',\'Customize Appearance\');" role="presentation" class=""><a id="settings-customize-appearance-anchor" href="#settings-customize-appearance" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-eye"></i></span><span class="hidden-xs" lang="en">Appearance</span></a>
                             </li>
-                            <li onclick="changeSettingsMenu(\'Settings::Customize::Marketplace\');loadMarketplace(\'themes\');" role="presentation" class=""><a id="settings-customize-marketplace-anchor" href="#settings-customize-marketplace" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-layout-list-thumb"></i></span><span class="hidden-xs" lang="en">Marketplace</span></a></li>
+                            <li onclick="changeSettingsMenu(\'Settings::Customize::Marketplace\');loadMarketplace(\'themes\');" role="presentation" class=""><a id="settings-customize-marketplace-anchor" href="#settings-customize-marketplace" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-shopping-cart-full"></i></span><span class="hidden-xs" lang="en">Marketplace</span></a></li>
                         </ul>
                         <!-- Tab panes -->
                         <div class="tab-content">
@@ -116,7 +118,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                             </li>
                             <li onclick="changeSettingsMenu(\'Settings::User Management::Manage Groups\');loadSettingsPage(\'api/?v1/settings/user/manage/groups\',\'#settings-user-manage-groups\',\'Group Management\');" role="presentation" class=""><a id="settings-user-manage-groups-anchor" href="#settings-user-manage-groups" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-briefcase"></i></span><span class="hidden-xs" lang="en">Groups</span></a>
                             </li>
-                            <li onclick="changeSettingsMenu(\'Settings::User Management::Import Users\');" role="presentation" class=""><a id="settings-user-import-users-anchor" href="#settings-user-import-users" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-briefcase"></i></span><span class="hidden-xs" lang="en">Import</span></a>
+                            <li onclick="changeSettingsMenu(\'Settings::User Management::Import Users\');" role="presentation" class=""><a id="settings-user-import-users-anchor" href="#settings-user-import-users" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-import"></i></span><span class="hidden-xs" lang="en">Import</span></a>
                             </li>
                         </ul>
                         <!-- Tab panes -->
@@ -156,7 +158,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                             </li>
                             <li onclick="changeSettingsMenu(\'Settings::System Settings::Main\');loadSettingsPage(\'api/?v1/settings/settings/main\',\'#settings-settings-main\',\'Main Settings\');" role="presentation" class=""><a id="settings-settings-main-anchor" href="#settings-settings-main" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-settings"></i></span><span class="hidden-xs" lang="en">Main</span></a>
                             </li>
-                            <li onclick="changeSettingsMenu(\'Settings::System Settings::SSO\');loadSettingsPage(\'api/?v1/settings/settings/sso\',\'#settings-settings-sso\',\'SSO\');" role="presentation" class=""><a id="settings-settings-sso-anchor" href="#settings-settings-sso" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-receipt"></i></span><span class="hidden-xs" lang="en">Single Sign-On</span></a>
+                            <li onclick="changeSettingsMenu(\'Settings::System Settings::SSO\');loadSettingsPage(\'api/?v1/settings/settings/sso\',\'#settings-settings-sso\',\'SSO\');" role="presentation" class=""><a id="settings-settings-sso-anchor" href="#settings-settings-sso" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-key"></i></span><span class="hidden-xs" lang="en">Single Sign-On</span></a>
                             </li>
                             <li onclick="changeSettingsMenu(\'Settings::System Settings::Logs\');loadSettingsPage(\'api/?v1/settings/settings/logs\',\'#settings-settings-logs\',\'Log Viewer\');" role="presentation" class=""><a id="settings-settings-logs-anchor" href="#settings-settings-logs" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="false"><span class="visible-xs"><i class="ti-receipt"></i></span><span class="hidden-xs" lang="en">Logs</span></a>
                             </li>
@@ -180,6 +182,19 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                                 <div class="clearfix"></div>
                             </div>
                             <div role="tabpanel" class="tab-pane fade active in" id="settings-settings-about">
+                            	<div class="row">
+	                                <div class="col-lg-12">
+							            <div class="panel panel-default">
+											<div class="panel-heading bg-org p-t-10 p-b-10">
+												<span class="pull-left m-t-5"><span lang="en">Organizr News</span></span>
+												<div class="clearfix"></div>
+											</div>
+							                <div class="panel-wrapper p-b-0 collapse in bg-org">
+							        			<div id="organizrNewsPanel"></div>
+							                </div>
+							            </div>
+							        </div>
+    							</div>
     							<div class="row">
     								<div class="col-lg-6 col-sm-12 col-md-6">
     									<div class="panel bg-org">
@@ -204,6 +219,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
 	                                        <div class="white-box bg-org">
 	                                            <h4 lang="en">Want to help translate?</h4>
 	                                            <p lang="en">Head on over to POEditor and help us translate Organizr into your language</p>
+	                                            <p lang="en">I will try and import new strings every Friday</p>
 	                                        </div>
 	                                    </a>
     								</div>
@@ -297,7 +313,7 @@ if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
                                             </div>
                                             <div class="tab-pane" id="donate-patreon">
                                                 <blockquote>Need specialized support or just want to support Organizr?  If so head to Patreon...<br/>Please click the button to continue.</blockquote>
-                                                <button onclick="window.open(\'https://www.patreon.com/bePatron?u=8370887\', \'_blank\')" class="btn btn-primary btn-rounded waves-effect waves-light" type="button"><span class="btn-label"><i class="fa fa-link"></i></span><span lang="en">Continue To Website</span></button>
+                                                <button onclick="window.open(\'https://www.patreon.com/join/organizr?\', \'_blank\')" class="btn btn-primary btn-rounded waves-effect waves-light" type="button"><span class="btn-label"><i class="fa fa-link"></i></span><span lang="en">Continue To Website</span></button>
                                             </div>
                                             <div class="tab-pane" id="donate-ads">
                                                 <blockquote>Money not an option?  No problem.  Show some love to this Google Ad below:</blockquote>

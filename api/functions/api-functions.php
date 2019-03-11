@@ -20,7 +20,7 @@ function login($array)
 			}
 		}
 	}
-	$username = strtolower($username);
+	$username = (strpos($GLOBALS['authBackend'], 'emby') !== false) ? $username : strtolower($username);
 	$days = (isset($remember)) ? $GLOBALS['rememberMeDays'] : 1;
 	$oAuth = (isset($oAuth)) ? $oAuth : false;
 	try {
@@ -127,7 +127,8 @@ function login($array)
 				if (createToken($result['username'], $result['email'], $result['image'], $result['group'], $result['group_id'], $GLOBALS['organizrHash'], $days)) {
 					writeLoginLog($username, 'success');
 					writeLog('success', 'Login Function - A User has logged in', $username);
-					ssoCheck($username, $password, $token); //need to work on this
+					$ssoUser = (empty($result['email'])) ? $result['username'] : $result['email'];
+					ssoCheck($ssoUser, $password, $token); //need to work on this
 					return true;
 				} else {
 					return 'Token Creation Error';
@@ -545,6 +546,9 @@ function adminEditUser($array)
 {
 	switch ($array['data']['action']) {
 		case 'changeGroup':
+			if ($array['data']['newGroupID'] == 0) {
+				return false;
+			}
 			try {
 				$connect = new Dibi\Connection([
 					'driver' => 'sqlite3',
@@ -789,6 +793,8 @@ function editTabs($array)
 					'url_local' => $array['data']['tabLocalURL'],
 					'ping_url' => $array['data']['pingURL'],
 					'image' => $array['data']['tabImage'],
+					'timeout' => $array['data']['tabActionType'],
+					'timeout_ms' => $array['data']['tabActionTime'],
 				], '
                     WHERE id=?', $array['data']['id']);
 				writeLog('success', 'Tab Editor Function -  Edited Tab Info for [' . $array['data']['tabName'] . ']', $GLOBALS['organizrUser']['username']);
@@ -836,7 +842,9 @@ function editTabs($array)
 					'enabled' => 1,
 					'group_id' => $array['data']['tabGroupID'],
 					'image' => $array['data']['tabImage'],
-					'type' => $array['data']['tabType']
+					'type' => $array['data']['tabType'],
+					'timeout' => $array['data']['tabActionType'],
+					'timeout_ms' => $array['data']['tabActionTime'],
 				];
 				$connect->query('INSERT INTO [tabs]', $newTab);
 				writeLog('success', 'Tab Editor Function - Created Tab for: ' . $array['data']['tabName'], $GLOBALS['organizrUser']['username']);
@@ -1155,5 +1163,23 @@ function revokeToken($array)
 		} catch (Dibi\Exception $e) {
 			return false;
 		}
+	}
+}
+
+function getSchema()
+{
+	if (file_exists('config' . DIRECTORY_SEPARATOR . 'config.php')) {
+		try {
+			$connect = new Dibi\Connection([
+				'driver' => 'sqlite3',
+				'database' => $GLOBALS['dbLocation'] . $GLOBALS['dbName'],
+			]);
+			$result = $connect->fetchAll(' SELECT name, sql FROM sqlite_master WHERE type=\'table\' ORDER BY name');
+			return $result;
+		} catch (Dibi\Exception $e) {
+			return false;
+		}
+	} else {
+		return 'DB not set yet...';
 	}
 }
