@@ -6,10 +6,11 @@
     <meta charset="utf-8">
     <meta content="IE=edge" http-equiv="X-UA-Compatible">
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-    <meta content="Organizr - Accept no others" name="description">
+    <meta content="<?php echo $GLOBALS['organizrIndexDescription']; ?>"
+          name="description">
     <meta content="CauseFX" name="author">
 	<?php echo favIcons(); ?>
-    <title>Organizr v2</title>
+    <title><?php echo $GLOBALS['organizrIndexTitle']; ?></title>
     <link href="bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="plugins/bower_components/sidebar-nav/dist/sidebar-nav.min.css" rel="stylesheet">
     <link href="plugins/bower_components/jquery-wizard-master/css/wizard.css" rel="stylesheet">
@@ -17,7 +18,7 @@
     <link href="plugins/bower_components/jquery-wizard-master/libs/formvalidation/formValidation.min.css"
           rel="stylesheet">
     <link href="plugins/bower_components/Magnific-Popup-master/dist/magnific-popup.css" rel="stylesheet">
-    <link href="plugins/bower_components/sweetalert/sweetalert.css" rel="stylesheet" type="text/css">
+    <!--<link href="plugins/bower_components/sweetalert/sweetalert.css" rel="stylesheet" type="text/css">-->
     <link href="plugins/bower_components/switchery/dist/switchery.min.css" rel="stylesheet"/>
     <link href="plugins/bower_components/dropzone-master/dist/dropzone.css" rel="stylesheet" type="text/css"/>
     <link href="plugins/bower_components/css-chart/css-chart.css" rel="stylesheet">
@@ -41,8 +42,12 @@
     <style id="custom-theme-css"></style>
     <style id="custom-css"></style>
     <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"
+            integrity="sha384-0s5Pv64cNZJieYFkXYOTId2HMA2Lfb6q2nAcx2n0RTLUnCAoTTsS0nKEO27XyKcY"
+            crossorigin="anonymous"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"
+            integrity="sha384-ZoaMbDF+4LeFxg6WdScQ9nnR1QC2MIRxA1O9KWEXQwns1G8UNyIEZIQidzb0T1fo"
+            crossorigin="anonymous"></script>
     <![endif]-->
 </head>
 
@@ -268,7 +273,7 @@
 <script src="plugins/bower_components/datatables/jquery.dataTables.min.js"></script>
 <script src="plugins/bower_components/datatables-plugins/sorting/datetime-moment.js"></script>
 <script src="plugins/bower_components/Magnific-Popup-master/dist/jquery.magnific-popup.min.js"></script>
-<script src="plugins/bower_components/sweetalert/sweetalert.min.js"></script>
+<script src="plugins/bower_components/sweetalert/sweetalert.min.js?v=<?php echo $GLOBALS['fileHash']; ?>"></script>
 <script src="plugins/bower_components/switchery/dist/switchery.min.js"></script>
 <script src="js/tinycolor.min.js"></script>
 <script src="plugins/bower_components/bootstrap-colorpicker-sliders/bootstrap.colorpickersliders.min.js"></script>
@@ -290,7 +295,9 @@
 <script src="js/custom.min.js?v=<?php echo $GLOBALS['fileHash']; ?>"></script>
 <script id="custom-theme-javascript"></script>
 <script id="custom-javascript"></script>
-<script src="https://js.pusher.com/4.1/pusher.min.js"></script>
+<script src="https://js.pusher.com/4.1/pusher.min.js"
+        integrity="sha384-e9MoFh6Cw/uluf+NZ6MJwfJ1Dm7UOvJf9oTBxxCYDyStJeeAF0q53ztnEbLLDSQP"
+        crossorigin="anonymous"></script>
 <?php echo pluginFiles('js');
 echo formKey(); ?>
 </body>

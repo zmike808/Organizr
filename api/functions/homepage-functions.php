@@ -19,6 +19,7 @@ function homepageOrder()
 		"homepageOrderdeluge" => $GLOBALS['homepageOrderdeluge'],
 		"homepageOrderrTorrent" => $GLOBALS['homepageOrderrTorrent'],
 		"homepageOrderdownloader" => $GLOBALS['homepageOrderdownloader'],
+		"homepageOrderhealthchecks" => $GLOBALS['homepageOrderhealthchecks'],
 	);
 	asort($homepageOrder);
 	return $homepageOrder;
@@ -276,6 +277,18 @@ function buildHomepageItem($homepageItem)
 				// Calendar
 				homepageCalendar("' . $GLOBALS['calendarRefresh'] . '");
 				// End Calendar
+				</script>
+				';
+			}
+			break;
+		case 'homepageOrderhealthchecks':
+			if ($GLOBALS['homepageHealthChecksEnabled'] && qualifyRequest($GLOBALS['homepageHealthChecksAuth'])) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Health Checks...</h2></div>';
+				$item .= '
+				<script>
+				// Health Checks
+				homepageHealthChecks("' . $GLOBALS['healthChecksTags'] . '","' . $GLOBALS['homepageHealthChecksRefresh'] . '");
+				// End Health Checks
 				</script>
 				';
 			}
@@ -2009,6 +2022,12 @@ function getHomepageList()
 						'value' => $GLOBALS['ombiLimitUser']
 					),
 					array(
+						'type' => 'number',
+						'name' => 'ombiLimit',
+						'label' => 'Item Limit',
+						'value' => $GLOBALS['ombiLimit'],
+					),
+					array(
 						'type' => 'select',
 						'name' => 'ombiRefresh',
 						'label' => 'Refresh Seconds',
@@ -2037,6 +2056,54 @@ function getHomepageList()
 						'attr' => 'onclick="testAPIConnection(\'ombi\')"'
 					),
 				)
+			)
+		),
+		array(
+			'name' => 'HealthChecks',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/healthchecks.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageHealthChecksEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageHealthChecksEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageHealthChecksAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageHealthChecksAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'password-alt',
+						'name' => 'healthChecksToken',
+						'label' => 'Token',
+						'value' => $GLOBALS['healthChecksToken']
+					)
+				),
+				'Misc Options' => array(
+					array(
+						'type' => 'input',
+						'name' => 'healthChecksTags',
+						'label' => 'Tags',
+						'value' => $GLOBALS['healthChecksTags'],
+						'help' => 'Pull only checks with this tag - Blank for all',
+						'placeholder' => 'Multiple tags using CSV - tag1,tag2'
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageHealthChecksRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageHealthChecksRefresh'],
+						'options' => optionTime()
+					),
+				),
 			)
 		),
 		array(
@@ -2216,6 +2283,13 @@ function buildHomepageSettings()
 				$class = 'bg-inverse';
 				$image = 'plugins/images/tabs/downloader.png';
 				if (!$GLOBALS['sabnzbdCombine'] && !$GLOBALS['nzbgetCombine'] && !$GLOBALS['rTorrentCombine'] && !$GLOBALS['delugeCombine'] && !$GLOBALS['transmissionCombine'] && !$GLOBALS['qBittorrentCombine']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrderhealthchecks':
+				$class = 'bg-healthchecks';
+				$image = 'plugins/images/tabs/healthchecks.png';
+				if (!$GLOBALS['homepageHealthChecksEnabled']) {
 					$class .= ' faded';
 				}
 				break;

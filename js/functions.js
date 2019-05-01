@@ -675,7 +675,10 @@ function reloadTab(tab, type){
 		case 0:
 		case '0':
 		case 'internal':
-
+		    var dataURL = $('.frame-'+cleanClass(tab)).attr('data-url');
+		    var dataName = $('.frame-'+cleanClass(tab)).attr('data-name');
+            $('#frame-'+cleanClass(tab)).html('');
+            loadInternal(dataURL,dataName);
 			break;
 		case 1:
 		case '1':
@@ -738,6 +741,10 @@ function loadNextTab(){
 	var next = $('#page-wrapper').find('.loaded').attr('data-name');
 	if (typeof next !== 'undefined') {
 		var type = $('#page-wrapper').find('.loaded').attr('data-type');
+        var parent = $('#menu-'+next).parent();
+        if(parent.hasClass('in') === false){
+            parent.parent().find('a').first().trigger('click')
+        }
 		switchTab(next,type);
 	}else{
 		console.log("Tab Function: No Available Tab to open");
@@ -799,15 +806,17 @@ function closeCurrentTab(){
 	}
 }
 function tabActions(event,name, type){
-    $('.splash-screen').removeClass('in').addClass('hidden');
-	if(event.ctrlKey){
+	if(event.ctrlKey && !event.shiftKey && !event.altKey){
 		popTab(cleanClass(name), type);
-	}else if(event.altKey){
+	}else if(event.altKey && !event.shiftKey && !event.ctrlKey){
         closeTab(name);
-	}else if(event.shiftKey){
+	}else if(event.shiftKey && !event.ctrlKey && !event.altKey){
 		reloadTab(cleanClass(name), type);
-	}else{
+	}else if(event.ctrlKey && event.shiftKey && !event.altKey){
+        switchTab(cleanClass(name), type);
+    }else{
 		switchTab(cleanClass(name), type);
+        $('.splash-screen').removeClass('in').addClass('hidden');
 	}
 }
 function reverseObject(object) {
@@ -949,7 +958,8 @@ function buildFormItem(item){
 			return smallLabel+'<select class="form-control'+extraClass+'"'+placeholder+value+id+name+disabled+type+attr+'>'+selectOptions(item.options, item.value)+'</select>';
 			break;
 		case 'select2':
-			return smallLabel+'<select class="m-b-10 '+extraClass+'"'+placeholder+value+id+name+disabled+type+attr+' multiple="multiple" data-placeholder="Choose">'+selectOptions(item.options, item.value)+'</select>';
+            var select2ID = (item.id) ? '#'+item.id : '.'+item.name;
+            return smallLabel+'<select class="m-b-10 '+extraClass+'"'+placeholder+value+id+name+disabled+type+attr+' multiple="multiple" data-placeholder="Choose">'+selectOptions(item.options, item.value)+'</select><script>$("'+select2ID+'").select2();</script>';
 			break;
 		case 'switch':
 		case 'checkbox':
@@ -1682,8 +1692,8 @@ function buildImageManagerViewItem(array){
 						<div class="el-card-avatar el-overlay-1"> <img class="lazyload tabImages" data-src="`+v+`" width="22" height="22">
 							<div class="el-overlay">
 								<ul class="el-info">
-									<li><a class="btn default btn-outline clipboard p-5" data-clipboard-text="`+clipboardText+`" href="javascript:void(0);"><i class="ti-clipboard"></i></a></li>
-									<li><a class="btn default btn-outline deleteImage p-5" href="javascript:void(0);" data-image-path="`+v+`" data-image-name="`+name[0]+`"><i class="icon-trash"></i></a></li>
+									<li><a class="btn default btn-outline clipboard p-a-5" data-clipboard-text="`+clipboardText+`" href="javascript:void(0);"><i class="ti-clipboard"></i></a></li>
+									<li><a class="btn default btn-outline deleteImage p-a-5" href="javascript:void(0);" data-image-path="`+v+`" data-image-name="`+name[0]+`"><i class="icon-trash"></i></a></li>
 								</ul>
 							</div>
 						</div>
@@ -2435,8 +2445,11 @@ function categoryProcess(arrayItems){
 	}
 }
 function buildFrame(name,url){
+    var sandbox = activeInfo.settings.misc.sandbox;
+    sandbox = sandbox.replace(/,/gi, ' ');
+    sandbox = (sandbox) ? ' sandbox="' + sandbox + '"' : '';
 	return `
-		<iframe allowfullscreen="true" frameborder="0" id="frame-`+cleanClass(name)+`" data-name="`+cleanClass(name)+`" sandbox="allow-presentation allow-forms allow-same-origin allow-pointer-lock allow-scripts allow-popups allow-modals allow-top-navigation" scrolling="auto" src="`+url+`" class="iframe"></iframe>
+		<iframe allowfullscreen="true" frameborder="0" id="frame-`+cleanClass(name)+`" data-name="`+cleanClass(name)+`" `+sandbox+` scrolling="auto" src="`+url+`" class="iframe"></iframe>
 	`;
 }
 function buildFrameContainer(name,url,type){
@@ -2448,7 +2461,7 @@ function buildInternalContainer(name,url,type){
 function buildMenuList(name,url,type,icon,ping=null){
     var ping = (ping !== null) ? `<small class="menu-`+cleanClass(ping)+`-ping-ms hidden-xs label label-rouded label-inverse pull-right pingTime hidden">
 </small><div class="menu-`+cleanClass(ping)+`-ping" data-tab-name="`+name+`" data-previous-state=""></div>` : '';
-	return `<li class="allTabsList" id="menu-`+cleanClass(name)+`" data-tab-name="`+cleanClass(name)+`" type="`+type+`" data-url="`+url+`"><a class="waves-effect" onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu elip sidebar-tabName">`+name+`</span>`+ping+`</a></li>`;
+	return `<li class="allTabsList" id="menu-`+cleanClass(name)+`" data-tab-name="`+cleanClass(name)+`" type="`+type+`" data-url="`+url+`"><a class="waves-effect"  onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu elip sidebar-tabName">`+name+`</span>`+ping+`</a></li>`;
 }
 function tabProcess(arrayItems) {
 	var iFrameList = '';
@@ -2856,7 +2869,7 @@ function submitSettingsForm(form){
                     var value = input.prop("checked") ? true : false;
                     break;
 				case 'select2':
-                    var value = input.val().toString();
+                    var value = (input.val() !== null) ? input.val().toString() : '';
                     break;
                 default:
                     var value = input.val();
@@ -3053,7 +3066,7 @@ function updateCheck(){
 		if(latest !== currentVersion) {
             console.log('Update Function: Update to ' + latest + ' is available');
             if (activeInfo.settings.misc.docker === false) {
-                message(window.lang.translate('Update Available'), latest + ' ' + window.lang.translate('is available, goto') + ' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '60000');
+                messageSingle(window.lang.translate('Update Available'), latest + ' ' + window.lang.translate('is available, goto') + ' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '60000');
             }
         }
 		$('#githubVersions').html(buildVersion(reverseObject(response)));
@@ -3098,7 +3111,7 @@ function checkCommitLoad(){
                 var current = activeInfo.settings.misc.githubCommit.toString().trim();
                 var link = 'https://github.com/causefx/Organizr/compare/'+current+'...'+latest;
                 if(latest !== current) {
-                    message(window.lang.translate('Update Available'),' <a href="'+link+'" target="_blank"><span lang="en">Compare Difference</span></a> <span lang="en">or</span> <a href="javascript:void(0)" onclick="updateNow()"><span lang="en">Update Now</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '600000');
+                    messageSingle(window.lang.translate('Update Available'),' <a href="'+link+'" target="_blank"><span lang="en">Compare Difference</span></a> <span lang="en">or</span> <a href="javascript:void(0)" onclick="updateNow()"><span lang="en">Update Now</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '600000');
                 }else{
                     console.log('Organizr Docker - Up to date');
                 }
@@ -3290,6 +3303,10 @@ function updateNow(){
         dockerUpdate();
         return false;
     }
+    if(activeInfo.serverOS === 'win'){
+        windowsUpdate();
+        return false;
+    }
 	console.log('Organizr Function: Starting Update Process');
 	$(updateBar()).appendTo('.organizr-area');
 	updateUpdateBar('Starting Download','5%');
@@ -3388,7 +3405,8 @@ function organizrAPI(type,path,data=null){
 				url:path,
 				method:"GET",
 				beforeSend: function(request) {
-					request.setRequestHeader("Token", activeInfo.token);
+                    request.setRequestHeader("Token", activeInfo.token);
+                    request.setRequestHeader("formKey", local('g','formKey'));
 				},
 				timeout: timeout,
 			});
@@ -3402,6 +3420,7 @@ function organizrAPI(type,path,data=null){
 				method:"POST",
 				beforeSend: function(request) {
 					request.setRequestHeader("Token", activeInfo.token);
+                    request.setRequestHeader("formKey", local('g','formKey'));
 				},
 				data:{
 					data: data,
@@ -3844,6 +3863,15 @@ function errorPage(error=null,uri=null){
         local('set','uri',$.urlParam('return'));
     }
 	if ( window.location !== window.parent.location ) {
+        var count = 0;
+        for (var k in window.parent.location) {
+            if (window.parent.location.hasOwnProperty(k)) {
+                ++count;
+            }
+        }
+        if(count == 0 || count == 'undefined'){
+            return false;
+        }
 		var iframeError = local('get', 'error');
 		parent.errorPage(iframeError);
         local('remove', 'uri');
@@ -4031,7 +4059,9 @@ function buildRecentItem(array, type, extra=null){
 			<div class="item lazyload `+className+` metadata-get mouse imageSource" data-source="`+type+`" data-key="`+v.metadataKey+`" data-uid="`+v.uid+`" data-src="`+v.imageURL+`">
 				`+extraImg+`
 				<div class="hover-homepage-item">
-					<a class="btn default refreshImage" data-type="recent-item" data-image="`+v.originalImage+`" href="javascript:void(0);"><i class="mdi mdi-refresh mdi-24px"></i></a>
+				    <span class="elip request-title-movie">
+					    <a class="text-white refreshImage" data-type="recent-item" data-image="`+v.originalImage+`" href="javascript:void(0);"><i class="mdi mdi-refresh mdi-24px"></i></a>
+					</span>
 				</div>
 				<span class="elip recent-title">`+v.title+`<br/>`+v.secondaryTitle+`</span>
 				<div id="`+v.uid+`-metadata-div" class="white-popup mfp-with-anim mfp-hide">
@@ -4056,7 +4086,9 @@ function buildPlaylistItem(array, type, extra=null){
 				items += `
 				<div class="item lazyload recent-poster metadata-get mouse imageSource" data-source="`+type+`" data-key="`+v.metadataKey+`" data-uid="`+v.uid+`" data-src="`+v.imageURL+`">
 					<div class="hover-homepage-item">
-						<a class="btn default refreshImage" data-type="recent-item" data-image="`+v.originalImage+`" href="javascript:void(0);"><i class="mdi mdi-refresh mdi-24px"></i></a>
+					    <span class="elip request-title-movie">
+						    <a class="text-white refreshImage" data-type="recent-item" data-image="`+v.originalImage+`" href="javascript:void(0);"><i class="mdi mdi-refresh mdi-24px"></i></a>
+						</span>
 					</div>
 					<span class="elip recent-title">`+v.title+`</span>
 					<div id="`+v.uid+`-metadata-div" class="white-popup mfp-with-anim mfp-hide">
@@ -4191,7 +4223,7 @@ function buildStream(array, type){
 	<div id="`+type+`Streams">
 		<div class="el-element-overlay row">
 		    <div class="col-md-12">
-		        <h4 class="pull-left"><span lang="en">Active</span> `+toUpper(type)+` <span lang="en">Streams</span>: </h4><h4 class="pull-left">&nbsp;<span class="label label-info m-l-20 checkbox-circle">`+streams+`</span></h4>
+		        <h4 class="pull-left"><span lang="en">Active</span> `+toUpper(type)+` <span lang="en">Streams</span>: </h4><h4 class="pull-left">&nbsp;<span class="label label-info m-l-20 checkbox-circle mouse" onclick="homepageStream('`+type+`')">`+streams+`</span></h4>
 		        <hr class="hidden-xs">
 		    </div>
 			<div class="clearfix"></div>
@@ -4233,7 +4265,7 @@ function buildRecent(array, type){
 	if(activeInfo.settings.homepage.options.alternateHomepageHeaders){
 		var headerAlt = `
 		<div class="col-md-12">
-			<h4 class="pull-left"><span lang="en">Recently Added</span></h4>
+			<h4 class="pull-left"><span class="mouse" onclick="homepageRecent('`+type+`')" lang="en">Recently Added</span></h4>
 			`+dropdownMenu+`
 			<hr class="hidden-xs"><div class="clearfix"></div>
 		</div>
@@ -4241,7 +4273,7 @@ function buildRecent(array, type){
 	}else{
 		var header = `
 		<div class="panel-heading bg-info p-t-10 p-b-10">
-			<span class="pull-left m-t-5"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/`+type+`.png"> &nbsp; <span lang="en">Recently Added</span></span>
+			<span onclick="homepageRecent('`+type+`')" class="pull-left m-t-5 mouse"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/`+type+`.png"> &nbsp; <span lang="en">Recently Added</span></span>
 			`+dropdownMenu+`
 			<div class="clearfix"></div>
 		</div>
@@ -4327,7 +4359,7 @@ function buildPlaylist(array, type){
 	if(activeInfo.settings.homepage.options.alternateHomepageHeaders){
 		var headerAlt = `
 		<div class="col-md-12">
-			<h4 class="pull-left"><span class="`+type+`-playlistTitle">`+first+`</span></h4>
+			<h4 class="pull-left"><span onclick="homepagePlaylist('`+type+`')" class="`+type+`-playlistTitle mouse">`+first+`</span></h4>
 			<div class="btn-group pull-right">
 				`+builtDropdown+`
 			</div>
@@ -4337,7 +4369,7 @@ function buildPlaylist(array, type){
 	}else{
 		var header = `
 		<div class="panel-heading bg-info p-t-10 p-b-10">
-			<span class="pull-left m-t-5"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/`+type+`.png"> &nbsp; <span class="`+type+`-playlistTitle">`+first+`</span></span>
+			<span class="pull-left m-t-5 mouse" onclick="homepagePlaylist('`+type+`')"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/`+type+`.png"> &nbsp; <span class="`+type+`-playlistTitle">`+first+`</span></span>
 			<div class="btn-group pull-right">
 					`+builtDropdown+`
 			</div>
@@ -4409,7 +4441,7 @@ function buildRequest(array){
 	if(activeInfo.settings.homepage.options.alternateHomepageHeaders){
 		var headerAlt = `
 		<div class="col-md-12">
-			<h4 class="pull-left"><span lang="en">Requests</span></h4>
+			<h4 class="pull-left"><span class="mouse" onclick="homepageRequests()" lang="en">Requests</span></h4>
 			<div class="btn-group pull-right">
 				`+builtDropdown+`
 			</div>
@@ -4419,7 +4451,7 @@ function buildRequest(array){
 	}else{
 		var header = `
 		<div class="panel-heading bg-info p-t-10 p-b-10">
-			<span class="pull-left m-t-5"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/ombi.png"> &nbsp; Requests</span>
+			<span class="pull-left m-t-5 mouse" onclick="homepageRequests()"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/ombi.png"> &nbsp; Requests</span>
 			<div class="btn-group pull-right">
 					`+builtDropdown+`
 			</div>
@@ -4542,7 +4574,7 @@ function buildRequestResult(array,media_type=null,list=null,page=null,search=fal
 	                <div class="el-card-item p-b-0">
 	                    <div class="el-card-avatar el-overlay-1 m-b-5 preloader-`+v.id+`"> <img class="lazyload resultImages" data-src="`+bg+`">
 	                        <div class="el-overlay">
-								<span class="text-info p-5 font-normal">`+comment+`</span>
+								<span class="text-info p-a-5 font-normal">`+comment+`</span>
 	                            <ul class="el-info">
 	                                <li><a class="btn default btn-outline" href="javascript:void(0);" onclick="processRequest('`+v.id+`','`+media_type+`');"><i class="icon-link"></i>&nbsp; <span lang="en">Request</span></a></li>
 	                                <li><a class="btn default btn-outline" href="https://www.themoviedb.org/`+media_type+`/`+v.id+`" target="_blank"><i class="icon-info"></i></a></li>
@@ -4731,6 +4763,10 @@ function buildDownloaderItem(array, source, type='none'){
     var count = 0;
 	switch (source) {
 		case 'sabnzbd':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems.queue.paused){
                 var state = `<a href="#"><span class="downloader mouse" data-source="sabnzbd" data-action="resume" data-target="main"><i class="fa fa-play"></i></span></a>`;
                 var active = 'grayscale';
@@ -4783,6 +4819,10 @@ function buildDownloaderItem(array, source, type='none'){
             });
 			break;
 		case 'nzbget':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems.result.length == 0){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
@@ -4830,6 +4870,10 @@ function buildDownloaderItem(array, source, type='none'){
             });
 			break;
 		case 'transmission':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems.arguments.torrents == 0){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
@@ -4889,6 +4933,10 @@ function buildDownloaderItem(array, source, type='none'){
             });
 			break;
         case 'rTorrent':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems == 0){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
@@ -4922,6 +4970,10 @@ function buildDownloaderItem(array, source, type='none'){
             });
             break;
 		case 'qBittorrent':
+		    if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems.arguments.torrents == 0){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
@@ -4977,6 +5029,10 @@ function buildDownloaderItem(array, source, type='none'){
             });
 			break;
 		case 'deluge':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
             if(array.content.queueItems.length == 0){
                 queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
             }
@@ -5214,7 +5270,7 @@ function buildMetadata(array, source){
 		var hasGenre = (typeof v.metadata.genres !== 'string') ? true : false;
 		if(hasActor){
 			$.each(v.metadata.actors, function(i,v) {
-				actors += '<div class="item lazyload recent-poster" data-src="'+(v.thumb.replace("http://", "https://"))+'" alt="'+v.name+'" ><span class="elip recent-title p-5">'+v.name+'<br><small class="font-light">'+v.role+'</small></span></div>';
+				actors += '<div class="item lazyload recent-poster" data-src="'+(v.thumb.replace("http://", "https://"))+'" alt="'+v.name+'" ><span class="elip recent-title p-a-5">'+v.name+'<br><small class="font-light">'+v.role+'</small></span></div>';
 			});
 		}
 		if(hasGenre){
@@ -5312,6 +5368,128 @@ function buildCalendarMetadata(array){
 
 		`;
 	return metadata;
+}
+function buildHealthChecks(array){
+    if(array === false){ return ''; }
+    var checks = (typeof array.content.checks !== 'undefined') ? array.content.checks.length : false;
+    return (checks) ? `
+	<div id="allHealthChecks">
+		<div class="el-element-overlay row">
+		    <div class="col-md-12">
+		        <h4 class="pull-left"><span lang="en">Health Checks</span> : </h4><h4 class="pull-left">&nbsp;<span class="label label-info m-l-20 checkbox-circle good-health-checks mouse">`+checks+`</span></h4>
+		        <hr class="hidden-xs">
+		    </div>
+			<div class="clearfix"></div>
+		    <!-- .cards -->
+			`+buildHealthChecksItem(array.content.checks)+`
+		    <!-- /.cards-->
+		</div>
+	</div>
+	<div class="clearfix"></div>
+	` : '';
+}
+function healthCheckIcon(tags){
+    var allTags = tags.split(' ');
+    var useIcon = '';
+    $.each(allTags, function(i,v) {
+        //check for image
+        var file =  v.substring(v.lastIndexOf('.')+1, v.length).toLowerCase() || v.toLowerCase();
+        switch (file) {
+            case 'png':
+            case 'jpg':
+            case 'jpeg':
+            case 'gif':
+                useIcon = '<img class="lazyload loginTitle" data-src="'+v+'">&nbsp;';
+                break;
+            default:
+        }
+    });
+    return useIcon;
+}
+function buildHealthChecksItem(array){
+    var checks = '';
+    $.each(array, function(i,v) {
+        var hasIcon = healthCheckIcon(v.tags);
+        v.name = (v.name) ? v.name : 'New Item';
+        switch(v.status){
+            case 'up':
+                var statusColor = 'success';
+                var statusIcon = 'ti-link text-success';
+                var nextPing = moment.utc(v.next_ping, "YYYY-MM-DD hh:mm[Z]").local().fromNow();
+                var lastPing = moment.utc(v.last_ping, "YYYY-MM-DD hh:mm[Z]").local().fromNow();
+                break;
+            case 'down':
+                var statusColor = 'danger animated-3 loop-animation flash';
+                var statusIcon = 'ti-unlink text-danger';
+                var nextPing = 'Service Down';
+                var lastPing = moment.utc(v.last_ping, "YYYY-MM-DD hh:mm[Z]").local().fromNow();
+                break;
+            case 'new':
+                var statusColor = 'info';
+                var statusIcon = 'ti-time text-info';
+                var nextPing = 'Waiting...';
+                var lastPing = 'n/a';
+                break;
+            case 'grace':
+                var statusColor = 'warning';
+                var statusIcon = 'ti-alert text-warning';
+                var nextPing = moment.utc(v.next_ping, "YYYY-MM-DD hh:mm[Z]").local().fromNow();
+                var lastPing = 'Missed';
+                break;
+            case 'paused':
+                var statusColor = 'primary';
+                var statusIcon = 'ti-control-pause text-primary';
+                var nextPing = 'Paused';
+                var lastPing = moment.utc(v.last_ping, "YYYY-MM-DD hh:mm[Z]").local().fromNow();
+                break;
+            default:
+                var statusColor = 'warning';
+                var statusIcon = 'ti-timer text-warning';
+                var nextPing = 'Waiting...';
+                var lastPing = 'n/a';
+        }
+        checks += `
+            <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-xs-12">
+                <div class="card bg-inverse text-white mb-3 showMoreHealth mouse" data-id="`+i+`">
+                    <div class="card-body bg-org-alt pt-1 pb-1">
+                        <div class="d-flex no-block align-items-center">
+                            <div class="left-health bg-`+statusColor+`"></div>
+                            <div class="ml-1 w-100">
+                                <i class="`+statusIcon+` font-20 pull-right mt-3 mb-2"></i>
+                                <h3 class="d-flex no-block align-items-center mt-2 mb-2">`+hasIcon+v.name+`</h3>
+                                <div class="clearfix"></div>
+                                <div class="d-none showMoreHealthDiv-`+i+`"><h5>Last: `+lastPing+`</h5><h5>Next: `+nextPing+`</h5></div>
+                                <div class="clearfix"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+    });
+    return checks;
+}
+function homepageHealthChecks(tags, timeout){
+    var tags = (typeof tags !== 'undefined') ? tags : activeInfo.settings.homepage.options.healthChecksTags;
+    var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepageHealthChecksRefresh;
+    organizrAPI('POST','api/?v1/homepage/connect',{action:'getHealthChecks',tags:tags}).success(function(data) {
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+            return false;
+        }
+        document.getElementById('homepageOrderhealthchecks').innerHTML = '';
+        if(response.data !== null){
+            $('#homepageOrderhealthchecks').html(buildHealthChecks(response.data));
+        }
+    }).fail(function(xhr) {
+        console.error("Organizr Function: API Connection Failed");
+    });
+    var timeoutTitle = 'HealthChecks-Homepage';
+    if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
+    timeouts[timeoutTitle] = setTimeout(function(){ homepageHealthChecks(tags,timeout); }, timeout);
 }
 function homepageDownloader(type, timeout){
 	var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepageDownloadRefresh;
@@ -5483,9 +5661,9 @@ function homepageRequests(timeout){
 	if(typeof timeouts['ombi-Homepage'] !== 'undefined'){ clearTimeout(timeouts['ombi-Homepage']); }
 	timeouts['ombi-Homepage'] = setTimeout(function(){ homepageRequests(timeout); }, timeout);
 }
-function testAPIConnection(service){
+function testAPIConnection(service, data = ''){
     messageSingle('',' Testing now...',activeInfo.settings.notifications.position,'#FFF','info','10000');
-    organizrAPI('POST','api/?v1/test/api/connection',{action:service}).success(function(data) {
+    organizrAPI('POST','api/?v1/test/api/connection',{action:service, data:data}).success(function(data) {
         try {
             var response = JSON.parse(data);
         }catch(e) {
@@ -6553,12 +6731,63 @@ function checkIfTabNameExists(tabName){
     }
 }
 function orgErrorAlert(error){
-    $('#main-org-error-container').addClass('show');
-    $('#main-org-error').html(error);
+    if(activeInfo.settings.misc.debugErrors) {
+        $('#main-org-error-container').addClass('show');
+        $('#main-org-error').html(error);
+    }
 }
 function closeOrgError(){
     $('#main-org-error-container').removeClass('show');
     $('#main-org-error').html('');
+}
+function isJSON(data) {
+    if (typeof data != 'string'){
+        data = JSON.stringify(data);
+    }
+    try {
+        JSON.parse(data);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+function createElementFromHTML(htmlString) {
+    var div = document.createElement('div');
+    div.innerHTML = htmlString.trim();
+    return div.firstChild;
+}
+function showLDAPLoginTest(){
+    var div = `
+        <div class="row">
+            <div class="col-12">
+                <div class="card m-b-0">
+                    <div class="form-horizontal">
+                        <div class="card-body">
+                            <h4 class="card-title" lang="en">LDAP User Info</h4>
+                            <div class="form-group row">
+                                <div class="col-sm-12">
+                                    <input type="text" class="form-control" id="ldapUsernameTest" placeholder="Username">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-sm-12">
+                                    <input type="password" class="form-control" id="ldapPasswordTest" placeholder="Password">
+                                </div>
+                            </div>
+                            <div class="form-group mb-0 p-r-10 text-right">
+                                <button type="submit" onclick="testAPIConnection('ldap_login', {'username':$('#ldapUsernameTest').val(),'password':$('#ldapPasswordTest').val()})" class="btn btn-info waves-effect waves-light">Test Login</button>
+                            </div>
+                        </div>				
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    swal({
+        content: createElementFromHTML(div),
+        buttons: false,
+        className: 'bg-org'
+    })
 }
 function launch(){
 	organizrConnect('api/?v1/launch_organizr').success(function (data) {
@@ -6633,5 +6862,6 @@ function launch(){
 			default:
 				console.error('Organizr Function: Action not set or defined');
 		}
+		console.log('Organizr DOM Fully loaded');
 	});
 }
