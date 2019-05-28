@@ -101,7 +101,7 @@ function joinPlex(){
             console.log(response);
             if(response.data){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
+                // $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
                 var plexToken = response.data.user.authToken;
                 var code = $('#inviteCodeInput').val().toUpperCase();
@@ -117,7 +117,7 @@ function joinPlex(){
                 organizrAPI('POST','api/?v1/plugin',post).success(function(data) {
                     var response = JSON.parse(data);
                     if(response.data === true){
-                        $('.invite-step-3-plex-yes').toggleClass('hidden');
+                        // $('.invite-step-3-plex-yes').toggleClass('hidden');
                         $('.invite-step-4-plex-accept').toggleClass('hidden');
                         if(local('get', 'invite')){
                             local('remove', 'invite');
@@ -125,7 +125,7 @@ function joinPlex(){
                     }else{
                         message('Invite Error',' Code Incorrect',activeInfo.settings.notifications.position,'#FFF','warning','5000');
                     }
-                    ajaxloader();;
+                    ajaxloader();
                 }).fail(function(xhr) {
                     console.error("Organizr Function: API Connection Failed");
                     ajaxloader();
@@ -174,13 +174,13 @@ function joinEmby(){
 function inviteHasAccount(type,value){
     switch (type) {
         case 'plex':
-            if(value){
-                $('.invite-step-2').toggleClass('hidden');
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
-            }else{
-                $('.invite-step-2').toggleClass('hidden');
-                $('.invite-step-3-plex-no').toggleClass('hidden');
-            }
+            // if(value){
+            //     $('.invite-step-2').toggleClass('hidden');
+            //     $('.invite-step-3-plex-yes').toggleClass('hidden');
+            // }else{
+            //     $('.invite-step-2').toggleClass('hidden');
+            $('.invite-step-3-plex-no').toggleClass('hidden');
+            // }
             break;
         case 'emby' :
           if(value){
@@ -212,8 +212,9 @@ function hasPlexUsername(){
         organizrAPI('POST','api/?v1/plugin',post).success(function(data) {
             var response = JSON.parse(data);
             if(response.data === true){
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
-                $('.invite-step-4-plex-accept').toggleClass('hidden');
+                // $('.invite-step-3-plex-yes').toggleClass('hidden');
+                window.open("https://plex.zmagic.io", '_blank');
+                // $('.invite-step-4-plex-accept').toggleClass('hidden');
                 if(local('get', 'invite')){
             		local('remove', 'invite');
             	}
@@ -457,14 +458,6 @@ $(document).on('click', '.inviteModal', function() {
                                 </div>
                             </div>
 
-                        </div>
-                        <div class="form-group invite-step-3-plex-yes hidden">
-                            <div class="input-group" style="width: 100%;">
-                                <div class="input-group-addon hidden-xs"><i class="ti-user"></i></div>
-                                <input type="text" class="form-control" id="inviteUsernameInvite" placeholder="Plex Username or Email" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus="" required="">
-                            </div>
-                            <br />
-                            <button class="btn btn-block btn-info" onclick="hasPlexUsername();">Submit</button>
                         </div>
                         <div class="form-group invite-step-3-plex-no hidden">
                             <div class="input-group" style="width: 100%;">
