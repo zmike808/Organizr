@@ -119,7 +119,7 @@ function joinPlex(){
                     if(response.data === true){
                         // $('.invite-step-3-plex-yes').toggleClass('hidden');
                         // $('.invite-step-4-plex-accept').toggleClass('hidden');
-                        window.open("https://plex.zmagic.io", '_blank');
+                        window.open("https://app.plex.tv/", '_blank');
                         if(local('get', 'invite')){
                             local('remove', 'invite');
                         }
@@ -214,7 +214,7 @@ function hasPlexUsername(){
             var response = JSON.parse(data);
             if(response.data === true){
                 // $('.invite-step-3-plex-yes').toggleClass('hidden');
-                window.open("https://plex.zmagic.io", '_blank');
+                // window.open("https://plex.zmagic.io", '_blank');
                 // $('.invite-step-4-plex-accept').toggleClass('hidden');
                 if(local('get', 'invite')){
             		local('remove', 'invite');
