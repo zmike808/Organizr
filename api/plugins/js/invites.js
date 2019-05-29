@@ -118,8 +118,8 @@ function joinPlex(){
                     var response = JSON.parse(data);
                     if(response.data === true){
                         // $('.invite-step-3-plex-yes').toggleClass('hidden');
-                        // $('.invite-step-4-plex-accept').toggleClass('hidden');
-                        window.open("https://app.plex.tv/", '_blank');
+                        $('.invite-step-4-plex-accept').toggleClass('hidden');
+                        console.log(response.data)
                         if(local('get', 'invite')){
                             local('remove', 'invite');
                         }
@@ -131,6 +131,7 @@ function joinPlex(){
                     console.error("Organizr Function: API Connection Failed");
                     ajaxloader();
                 });
+                window.open("https://app.plex.tv/", '_blank');
             }else{
                 message('Invite Error'); //,' '+response.data,activeInfo.settings.notifications.position,'#FFF','warning','5000');
             }
@@ -463,7 +464,8 @@ $(document).on('click', '.inviteModal', function() {
                             <br />
                             <button class="btn btn-block btn-info" onclick="joinPlex();">Submit</button>
                         </div>
-
+                        <div class="form-group invite-step-4-plex-accept hidden">
+                            <h4 class="" lang="en">You're all set! <br/> Click the link below to check out plex now!<br/> <a href="https://app.plex.tv/" target="_blank">https://app.plex.tv/</a></h4>
                         <!-- Begin Emby Invites -->
                         <div class="form-group invite-step-3-emby-yes hidden">
                             <div class="input-group" style="width: 100%;">
