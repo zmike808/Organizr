@@ -104,6 +104,9 @@ function joinPlex(){
                 // $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
                 var plexToken = response.data.user.authToken;
+                var plexcookie = response.data;
+                document.cookie="plex_tv_auth="+JSON.stringify(plexcookie)
+                console.log(document.cookie)
                 var code = $('#inviteCodeInput').val().toUpperCase();
                 var username = response.data.user.username;
                 var post = {
@@ -119,7 +122,8 @@ function joinPlex(){
                     if(response.data === true){
                         // $('.invite-step-3-plex-yes').toggleClass('hidden');
                         $('.invite-step-4-plex-accept').toggleClass('hidden');
-                        console.log(response.data)
+
+                        window.open("https://app.plex.tv/", '_blank');
                         if(local('get', 'invite')){
                             local('remove', 'invite');
                         }
@@ -131,7 +135,6 @@ function joinPlex(){
                     console.error("Organizr Function: API Connection Failed");
                     ajaxloader();
                 });
-                window.open("https://app.plex.tv/", '_blank');
             }else{
                 message('Invite Error'); //,' '+response.data,activeInfo.settings.notifications.position,'#FFF','warning','5000');
             }
