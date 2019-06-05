@@ -1,4 +1,17 @@
 <?php
+function checkPlexAdminFilled()
+{
+	if ($GLOBALS['plexAdmin'] == '') {
+		return false;
+	} else {
+		if ((strpos($GLOBALS['plexAdmin'], '@') !== false)) {
+			return 'email';
+		} else {
+			return 'username';
+		}
+	}
+}
+
 function organizrSpecialSettings()
 {
 	$refreshSearch = "Refresh";
@@ -39,6 +52,8 @@ function organizrSpecialSettings()
 				'cookie' => isset($_COOKIE['mpt']) ? true : false,
 				'machineID' => (strlen($GLOBALS['plexID']) == 40) ? true : false,
 				'token' => ($GLOBALS['plexToken'] !== '') ? true : false,
+				'plexAdmin' => checkPlexAdminFilled(),
+				'strict' => ($GLOBALS['plexStrictFriends']) ? true : false,
 				'oAuthEnabled' => ($GLOBALS['plexoAuth']) ? true : false,
 				'backend' => ($GLOBALS['authBackend'] == 'plex') ? true : false,
 			),
@@ -428,7 +443,7 @@ function organizrStatus()
 	$status = array();
 	$dependenciesActive = array();
 	$dependenciesInactive = array();
-	$extensions = array("PDO_SQLITE", "PDO", "SQLITE3", "zip", "cURL", "openssl", "simplexml", "json", "session");
+	$extensions = array("PDO_SQLITE", "PDO", "SQLITE3", "zip", "cURL", "openssl", "simplexml", "json", "session", "filter");
 	$functions = array("hash", "fopen", "fsockopen", "fwrite", "fclose", "readfile");
 	foreach ($extensions as $check) {
 		if (extension_loaded($check)) {
