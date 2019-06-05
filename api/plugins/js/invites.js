@@ -101,7 +101,7 @@ function joinPlex(){
             console.log(response);
             if(response.data){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
+                // $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
                 var plexToken = response.data.user.authToken;
                 var code = $('#inviteCodeInput').val().toUpperCase();
@@ -117,15 +117,17 @@ function joinPlex(){
                 organizrAPI('POST','api/?v1/plugin',post).success(function(data) {
                     var response = JSON.parse(data);
                     if(response.data === true){
-                        $('.invite-step-3-plex-yes').toggleClass('hidden');
+                        // $('.invite-step-3-plex-yes').toggleClass('hidden');
                         $('.invite-step-4-plex-accept').toggleClass('hidden');
                         if(local('get', 'invite')){
                             local('remove', 'invite');
                         }
+                        window.open("https://app.plex.tv/", '_blank');
                     }else{
                         message('Invite Error',' Code Incorrect',activeInfo.settings.notifications.position,'#FFF','warning','5000');
                     }
                     ajaxloader();;
+
                 }).fail(function(xhr) {
                     console.error("Organizr Function: API Connection Failed");
                     ajaxloader();
@@ -174,13 +176,13 @@ function joinEmby(){
 function inviteHasAccount(type,value){
     switch (type) {
         case 'plex':
-            if(value){
-                $('.invite-step-2').toggleClass('hidden');
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
-            }else{
-                $('.invite-step-2').toggleClass('hidden');
-                $('.invite-step-3-plex-no').toggleClass('hidden');
-            }
+            // if(value){
+            //     $('.invite-step-2').toggleClass('hidden');
+            //     $('.invite-step-3-plex-yes').toggleClass('hidden');
+            // }else{
+            //     $('.invite-step-2').toggleClass('hidden');
+            $('.invite-step-3-plex-no').toggleClass('hidden');
+            // }
             break;
         case 'emby' :
           if(value){
@@ -212,8 +214,9 @@ function hasPlexUsername(){
         organizrAPI('POST','api/?v1/plugin',post).success(function(data) {
             var response = JSON.parse(data);
             if(response.data === true){
-                $('.invite-step-3-plex-yes').toggleClass('hidden');
-                $('.invite-step-4-plex-accept').toggleClass('hidden');
+                // $('.invite-step-3-plex-yes').toggleClass('hidden');
+                // window.open("https://plex.zmagic.io", '_blank');
+                // $('.invite-step-4-plex-accept').toggleClass('hidden');
                 if(local('get', 'invite')){
             		local('remove', 'invite');
             	}
@@ -271,7 +274,8 @@ function verifyInvite(){
         var response = JSON.parse(data);
         if(response.data === true){
             $('.invite-step-1').toggleClass('hidden');
-            $('.invite-step-2').toggleClass('hidden');
+            inviteHasAccount('plex', false)
+            // $('.invite-step-2').toggleClass('hidden');
         }else{
             message('Invite Error',' Code Incorrect',activeInfo.settings.notifications.position,'#FFF','warning','5000');
         }
@@ -444,28 +448,6 @@ $(document).on('click', '.inviteModal', function() {
                             <button class="btn btn-block btn-info" onclick="verifyInvite();">Verify</button>
 
                         </div>
-                        <div class="form-group invite-step-2 hidden">
-
-
-                            <div class="row">
-                                <h2 class="text-center" lang="en">Do you have a `+activeInfo.plugins.includes["INVITES-type-include"].toUpperCase()+` account?</h2>
-                                <div class="col-lg-6">
-                                    <button class="btn btn-block btn-info m-b-10" onclick="inviteHasAccount('`+activeInfo.plugins.includes["INVITES-type-include"]+`',true);" lang="en">Yes</button>
-                                </div>
-                                <div class="col-lg-6">
-                                    <button class="btn btn-block btn-primary m-b-10" onclick="inviteHasAccount('`+activeInfo.plugins.includes["INVITES-type-include"]+`',false);" lang="en">No</button>
-                                </div>
-                            </div>
-
-                        </div>
-                        <div class="form-group invite-step-3-plex-yes hidden">
-                            <div class="input-group" style="width: 100%;">
-                                <div class="input-group-addon hidden-xs"><i class="ti-user"></i></div>
-                                <input type="text" class="form-control" id="inviteUsernameInvite" placeholder="Plex Username or Email" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus="" required="">
-                            </div>
-                            <br />
-                            <button class="btn btn-block btn-info" onclick="hasPlexUsername();">Submit</button>
-                        </div>
                         <div class="form-group invite-step-3-plex-no hidden">
                             <div class="input-group" style="width: 100%;">
                                 <div class="input-group-addon hidden-xs"><i class="ti-user"></i></div>
@@ -483,8 +465,7 @@ $(document).on('click', '.inviteModal', function() {
                             <button class="btn btn-block btn-info" onclick="joinPlex();">Submit</button>
                         </div>
                         <div class="form-group invite-step-4-plex-accept hidden">
-                            <h4 class="" lang="en">You have been invited.  Please goto <a href="https://plex.tv" target="_blank">PLEX.TV</a> and login to accept the invite.  Once you have done that, you may head back here and login with your credentials.</h4>
-                        </div>
+                            <h4 class="" lang="en">You're all set! <br/> Click the link below to check out plex now!<br/> <a href="https://app.plex.tv/" target="_blank">https://app.plex.tv/</a></h4>
                         <!-- Begin Emby Invites -->
                         <div class="form-group invite-step-3-emby-yes hidden">
                             <div class="input-group" style="width: 100%;">
@@ -510,8 +491,7 @@ $(document).on('click', '.inviteModal', function() {
                             <br />
                             <button class="btn btn-block btn-info" onclick="joinEmby();">Submit</button>
                         </div>
-                        <div class="form-group invite-step-4-plex-accept hidden">
-                            <h4 class="" lang="en">You're all set! <br/> Click the link below to check out plex now!<br/> <a href="https://app.plex.tv/" target="_blank">https://app.plex.tv/</a></h4>
+
                         <div class="form-group invite-step-4-emby-accept hidden">
                             <h4 class="" lang="en">You Have been added to emby!</h4>
                         </div>
