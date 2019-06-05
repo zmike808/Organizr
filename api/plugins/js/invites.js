@@ -103,9 +103,9 @@ function joinPlex(){
                 $('.invite-step-3-plex-no').toggleClass('hidden');
                 // $('.invite-step-3-plex-yes').toggleClass('hidden');
                 message('Invite Function',' User Created',activeInfo.settings.notifications.position,'#FFF','success','5000');
-                var plexToken = response.data.user.authToken;
+                var plexToken = response.data.authToken;
                 var code = $('#inviteCodeInput').val().toUpperCase();
-                var username = response.data.user.username;
+                var username = response.data.username;
                 var post = {
                     plugin:'Invites/codes',
                     action:'use',
