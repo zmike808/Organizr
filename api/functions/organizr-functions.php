@@ -2110,7 +2110,7 @@ function embyJoinAPI($array)
 function plexJoin($username, $email, $password)
 {
 	try {
-		$url = 'https://plex.tv/users.json';
+		$url = 'https://plex.tv/api/v2/users';
 		$headers = array(
 			'Accept' => 'application/json',
 			'Content-Type' => 'application/x-www-form-urlencoded',
@@ -2119,9 +2119,9 @@ function plexJoin($username, $email, $password)
 			'X-Plex-Client-Identifier' => $GLOBALS['uuid'],
 		);
 		$data = array(
-			'user[email]' => $email,
-			'user[username]' => $username,
-			'user[password]' => $password,
+			'email' => $email,
+			'username' => $username,
+			'password' => $password,
 		);
 		$response = Requests::post($url, $headers, $data, array());
 		$json = json_decode($response->body, true);
