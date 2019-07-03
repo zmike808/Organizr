@@ -521,6 +521,9 @@ function swapBodyClass(tab){
     $('body').attr('data-active-tab', tab);
     $('body').addClass('active-tab-'+tab);
 }
+function editPageTitle(title){
+    document.title =  title + ' - ' + activeInfo.appearance.title;
+}
 function switchTab(tab, type){
     if(type !== 2){
         hideFrames();
@@ -540,6 +543,7 @@ function switchTab(tab, type){
 			var newTab = $('#internal-'+tab);
 			var tabURL = newTab.attr('data-url');
 			$('#menu-'+cleanClass(tab)).find('a').addClass("active");
+            editPageTitle(tab);
 			if(newTab.hasClass('loaded')){
 				console.log('Tab Function: Switching to tab: '+tab);
 				newTab.addClass("show").removeClass('hidden');
@@ -562,6 +566,7 @@ function switchTab(tab, type){
 			var newTab = $('#container-'+tab);
 			var tabURL = newTab.attr('data-url');
 			$('#menu-'+cleanClass(tab)).find('a').addClass("active");
+            editPageTitle(tab);
 			if(newTab.hasClass('loaded')){
 				console.log('Tab Function: Switching to tab: '+tab);
 				newTab.addClass("show").removeClass('hidden');
@@ -1183,7 +1188,7 @@ function loadMarketplaceThemesItems(themes){
                 <td>`+v.category+`</td>
                 <td>`+v.status+`</td>
                 <td style="text-align:center"><button type="button" onclick='aboutTheme(`+JSON.stringify(v)+`);' class="btn btn-success btn-outline btn-circle btn-lg popup-with-form" href="#about-theme-form" data-effect="mfp-3d-unfold"><i class="fa fa-info"></i></button></td>
-                <td style="text-align:center"><button type="button" onclick='installTheme(`+JSON.stringify(v)+`);' class="btn btn-info btn-outline btn-circle btn-lg"><i class="`+installButton+`"></i></button></td>
+                <td style="text-align:center"><button type="button" onclick='installTheme(`+JSON.stringify(v)+`);themeAnalytics("`+ v.name +`");' class="btn btn-info btn-outline btn-circle btn-lg"><i class="`+installButton+`"></i></button></td>
                 <td style="text-align:center"><button type="button" onclick='removeTheme(`+JSON.stringify(v)+`);' class="btn btn-danger btn-outline btn-circle btn-lg" `+removeButton+`><i class="fa fa-trash"></i></button></td>
             </tr>
         `;
@@ -1483,7 +1488,6 @@ function installTheme(theme=null){
             orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
             return false;
         }
-        console.log(data);
         if(html.data.substr(0, 7) == 'Success'){
             var newThemes = html.data.split('!@!');
             activeInfo.settings.misc.installedThemes = newThemes[1];
@@ -1895,6 +1899,8 @@ function checkTabHomepageItem(id, name, url, urlLocal){
         addEditHomepageItem(id,'Plex');
     }else if(name.includes('emby') || url.includes('emby') || urlLocal.includes('emby')){
         addEditHomepageItem(id,'Emby');
+    }else if(name.includes('jdownloader') || url.includes('jdownloader') || urlLocal.includes('jdownloader')){
+        addEditHomepageItem(id,'jDownloader');
     }else if(name.includes('sab') || url.includes('sab') || urlLocal.includes('sab')){
         addEditHomepageItem(id,'SabNZBD');
     }else if(name.includes('nzbget') || url.includes('nzbget') || urlLocal.includes('nzbget')){
@@ -3249,8 +3255,9 @@ function sponsorAbout(id,array){
     var coupon = (array.coupon == null) ? false : true;
     var couponAbout = (array.coupon_about == null) ? false : true;
     var extraInfo = (coupon && couponAbout) ? `
-        <br><span class="label label-rouded label-info pull-right">`+array.coupon+`</span>
-        <br><span class="mail-desc">`+array.coupon_about+`</span>
+        <h3>Coupon Code:</h3>
+        <p><span class="label label-rouded label-info pull-right">`+array.coupon+`</span>
+        <span class=" pull-left">`+array.coupon_about+`</span></p>
     ` : '';
     return `
         <!--  modal content -->
@@ -3286,15 +3293,24 @@ function sponsorAbout(id,array){
 function buildSponsor(array){
     var sponsors = '';
     $.each(array, function(i,v) {
-        var sponsorAboutModal = (v.about) ? 'data-toggle="modal" data-target="#sponsor-'+i+'-modal"' : 'onclick="window.open(\''+ v.website +'\', \'_blank\')"';
+        var hasCoupon = '';
+        if(v.about){
+            if(v.coupon){
+                hasCoupon = `
+                    <span class="text-center has-coupon-text">Has Coupon</span>
+                    <span class="text-center has-coupon"><i class="fa fa-ticket" aria-hidden="true"></i></span>
+                `;
+            }
+        }
+        var sponsorAboutModal = (v.about) ? 'data-toggle="modal" data-target="#sponsor-'+i+'-modal" onclick="sponsorAnalytics(\''+v.company_name+'\');"' : 'onclick="window.open(\''+ v.website +'\', \'_blank\');sponsorAnalytics(\''+v.company_name+'\');"';
         sponsors += `
             <!-- /.usercard -->
             <div class="item lazyload recent-sponsor mouse imageSource mouse" `+sponsorAboutModal+` data-src="`+v.logo+`">
                 <span class="elip recent-title">`+v.company_name+`</span>
+                `+ hasCoupon +`
             </div>
             <!-- /.usercard-->
         `;
-
     });
     sponsors += `
         <!-- /.usercard -->
@@ -3313,6 +3329,46 @@ function buildSponsorModal(array){
 
     });
     return sponsors;
+}
+function sponsorAnalytics(sponsor_name){
+    var uuid = activeInfo.settings.misc.uuid;
+    $.ajax({
+        type: 'POST',
+        url: 'https://api.organizr.app/',
+        data: {
+            'sponsor_name': sponsor_name,
+            'user_uuid': uuid,
+            'cmd': 'sponsor'
+        },
+        cache: false,
+        async: true,
+        complete: function(xhr, status) {
+            if (xhr.status === 200) {
+                var result = $.parseJSON(xhr.responseText);
+                console.log(result.response.message);
+            }
+        }
+    });
+}
+function themeAnalytics(theme_name){
+    var uuid = activeInfo.settings.misc.uuid;
+    $.ajax({
+        type: 'POST',
+        url: 'https://api.organizr.app/',
+        data: {
+            'theme_name': theme_name,
+            'user_uuid': uuid,
+            'cmd': 'theme'
+        },
+        cache: false,
+        async: true,
+        complete: function(xhr, status) {
+            if (xhr.status === 200) {
+                var result = $.parseJSON(xhr.responseText);
+                console.log(result.response.message);
+            }
+        }
+    });
 }
 function updateBar(){
 	return `
@@ -4358,6 +4414,7 @@ function buildRecent(array, type){
 			`+dropdownMenu+`
 			<hr class="hidden-xs"><div class="clearfix"></div>
 		</div>
+		<div class="clearfix"></div>
 		`;
 	}else{
 		var header = `
@@ -4454,6 +4511,7 @@ function buildPlaylist(array, type){
 			</div>
 			<hr class="hidden-xs"><div class="clearfix"></div>
 		</div>
+		<div class="clearfix"></div>
 		`;
 	}else{
 		var header = `
@@ -4536,6 +4594,7 @@ function buildRequest(array){
 			</div>
 			<hr class="hidden-xs"><div class="clearfix"></div>
 		</div>
+		<div class="clearfix"></div>
 		`;
 	}else{
 		var header = `
@@ -4851,6 +4910,67 @@ function buildDownloaderItem(array, source, type='none'){
     var history = '';
     var count = 0;
 	switch (source) {
+        case 'jdownloader':
+            if(array.content === false){
+                queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
+                break;
+            }
+
+            /*
+            if(array.content.$status[0] != 'RUNNING'){
+                var state = `<a href="#"><span class="downloader mouse" data-source="jdownloader" data-action="resume" data-target="main"><i class="fa fa-play"></i></span></a>`;
+                var active = 'grayscale';
+            }else{
+                var state = `<a href="#"><span class="downloader mouse" data-source="jdownloader" data-action="pause" data-target="main"><i class="fa fa-pause"></i></span></a>`;
+                var active = '';
+            }
+            $('.jdownloader-downloader-action').html(state);
+            */
+
+            if(array.content.queueItems.length == 0){
+                queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+            }
+            $.each(array.content.queueItems, function(i,v) {
+                count = count + 1;
+                if(v.speed == null){
+                    if(v.percentage == '100'){
+                        v.speed = '--';
+                    }else{
+                        v.speed = 'Stopped';
+                    }
+                }
+                if(v.eta == null){
+                    if(v.percentage == '100'){
+                        v.eta = 'Complete';
+                    }else{
+                        v.eta = '--';
+                    }
+                }
+                queue += `
+                <tr>
+                    <td class="max-texts">`+v.name+`</td>
+                    <td class="hidden-xs">`+v.speed+`</td>
+                    <td class="hidden-xs" alt="`+v.done+`">`+v.size+`</td>
+                    <td class="hidden-xs">`+v.eta+`</td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: `+v.percentage+`%;" role="progressbar">`+v.percentage+`%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+            if(array.content.grabberItems.length == 0){
+                history = '<tr><td class="max-texts" lang="en">Nothing in Linkgrabbber</td></tr>';
+            }
+            $.each(array.content.grabberItems, function(i,v) {
+                history += `
+                <tr>
+                    <td class="max-texts">`+ v.name+`</td>
+                </tr>
+                `;
+            });
+            break;
 		case 'sabnzbd':
             if(array.content === false){
                 queue = '<tr><td class="max-texts" lang="en">Connection Error to ' + source + '</td></tr>';
@@ -5164,6 +5284,7 @@ function buildDownloader(source){
     var queueButton = 'QUEUE';
     var historyButton = 'HISTORY';
     switch (source) {
+        case 'jdownloader':
         case 'sabnzbd':
         case 'nzbget':
             var queue = true;
@@ -5230,6 +5351,7 @@ function buildDownloader(source){
 			`+menu+`
 			<hr class="hidden-xs"><div class="clearfix"></div>
 		</div>
+		<div class="clearfix"></div>
 		`;
 	}else{
 		var header = `
@@ -5258,6 +5380,7 @@ function buildDownloaderCombined(source){
     var queueButton = 'QUEUE';
     var historyButton = 'HISTORY';
     switch (source) {
+        case 'jdownloader':
         case 'sabnzbd':
         case 'nzbget':
             var queue = true;
@@ -5323,6 +5446,7 @@ function buildDownloaderCombined(source){
                 `+mainMenu+`
                 <div class="clearfix"></div>
             </div>
+            <div class="clearfix"></div>
             `;
         }else{
             var header = `
@@ -5470,7 +5594,9 @@ function buildHealthChecks(array){
 		    </div>
 			<div class="clearfix"></div>
 		    <!-- .cards -->
-			`+buildHealthChecksItem(array.content.checks)+`
+		    <div class="healthCheckCards">
+			    `+buildHealthChecksItem(array.content.checks)+`
+			</div>
 		    <!-- /.cards-->
 		</div>
 	</div>
@@ -5584,6 +5710,9 @@ function homepageDownloader(type, timeout){
 	var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepageDownloadRefresh;
 	//if(isHidden()){ return; }
 	switch (type) {
+        case 'jdownloader':
+            var action = 'getJdownloader';
+            break;
 		case 'sabnzbd':
 			var action = 'getSabnzbd';
 			break;
@@ -5722,6 +5851,20 @@ function homepagePlaylist(type, timeout=30000){
 		console.error("Organizr Function: API Connection Failed");
 	});
 }
+function defaultOmbiFilter(){
+    var defaultFilter = {
+        "request-filter-approved" : activeInfo.settings.homepage.ombi.ombiDefaultFilterApproved,
+        "request-filter-unapproved" : activeInfo.settings.homepage.ombi.ombiDefaultFilterUnapproved,
+        "request-filter-available" : activeInfo.settings.homepage.ombi.ombiDefaultFilterAvailable,
+        "request-filter-unavailable" : activeInfo.settings.homepage.ombi.ombiDefaultFilterUnavailable,
+        "request-filter-denied" : activeInfo.settings.homepage.ombi.ombiDefaultFilterDenied
+    };
+    $.each(defaultFilter, function(i,v) {
+        if(v == false){
+            $('#'+i).click();
+        }
+    });
+}
 function homepageRequests(timeout){
 	var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.ombiRefresh;
 	organizrAPI('POST','api/?v1/homepage/connect',{action:'getRequests'}).success(function(data) {
@@ -5744,6 +5887,8 @@ function homepageRequests(timeout){
 			autoWidth:true,
 			items:4
     	})
+        // Default Ombi Filter
+        defaultOmbiFilter();
 	}).fail(function(xhr) {
 		console.error("Organizr Function: API Connection Failed");
 	});
@@ -6947,6 +7092,20 @@ function launch(){
                     getPingList(json);
                 }
                 loadCustomJava(json.appearance);
+                if(getCookie('lockout')){
+                    $('.show-login').click();
+                    setTimeout(function(){
+                        $('div.login-box').block({
+                            message: '<h5><i class="fa fa-close"></i> Locked Out!</h4>',
+                            css: {
+                                color: '#fff',
+                                border: '1px solid #e91e63',
+                                backgroundColor: '#f44336'
+                            }
+                        });
+                    }, 1000);
+                    setTimeout(function(){ location.reload() }, 60000);
+                }
 				break;
 			default:
 				console.error('Organizr Function: Action not set or defined');

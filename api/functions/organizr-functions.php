@@ -35,6 +35,11 @@ function organizrSpecialSettings()
 				'sso' => ($GLOBALS['ssoOmbi']) ? true : false,
 				'cookie' => (isset($_COOKIE['Auth'])) ? true : false,
 				'alias' => ($GLOBALS['ombiAlias']) ? true : false,
+				'ombiDefaultFilterAvailable' => $GLOBALS['ombiDefaultFilterAvailable'] ? true : false,
+				'ombiDefaultFilterUnavailable' => $GLOBALS['ombiDefaultFilterUnavailable'] ? true : false,
+				'ombiDefaultFilterApproved' => $GLOBALS['ombiDefaultFilterApproved'] ? true : false,
+				'ombiDefaultFilterUnapproved' => $GLOBALS['ombiDefaultFilterUnapproved'] ? true : false,
+				'ombiDefaultFilterDenied' => $GLOBALS['ombiDefaultFilterDenied'] ? true : false
 			),
 			'options' => array(
 				'alternateHomepageHeaders' => $GLOBALS['alternateHomepageHeaders'],
@@ -708,6 +713,20 @@ function getSettingsMain()
 			)*/
 		),
 		'Security' => array(
+			array(
+				'type' => 'number',
+				'name' => 'loginAttempts',
+				'label' => 'Max Login Attempts',
+				'value' => $GLOBALS['loginAttempts'],
+				'placeholder' => ''
+			),
+			array(
+				'type' => 'select',
+				'name' => 'loginLockout',
+				'label' => 'Login Lockout Seconds',
+				'value' => $GLOBALS['loginLockout'],
+				'options' => optionTime()
+			),
 			array(
 				'type' => 'number',
 				'name' => 'lockoutTimeout',
@@ -1600,6 +1619,11 @@ function checkoAuth()
 	return ($GLOBALS['plexoAuth'] && $GLOBALS['authType'] !== 'internal') ? true : false;
 }
 
+function checkoAuthOnly()
+{
+	return ($GLOBALS['plexoAuth'] && $GLOBALS['authType'] == 'external') ? true : false;
+}
+
 function showoAuth()
 {
 	$buttons = '';
@@ -1688,6 +1712,7 @@ function approvedFileExtension($filename)
 		case 'png':
 		case 'jpeg':
 		case 'jpg':
+		case 'svg':
 			return true;
 			break;
 		default:
