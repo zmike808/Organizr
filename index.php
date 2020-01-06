@@ -1,4 +1,4 @@
-<?php include 'api/functions/static-globals.php'; ?>
+<?php include 'api/functions/static-globals.php';?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -245,7 +245,7 @@
 <?php echo "<script>languageList = " . languagePacks(true) . ";\n</script>"; ?>
 <script src="js/jquery-2.2.4.min.js"></script>
 <script src="bootstrap/dist/js/bootstrap.min.js"></script>
-<script src="plugins/bower_components/sidebar-nav/dist/sidebar-nav.js"></script>
+<script src="plugins/bower_components/sidebar-nav/dist/sidebar-nav.min.js"></script>
 <script src="js/jquery.slimscroll.js"></script>
 <script src="js/waves.js"></script>
 <script src="plugins/bower_components/styleswitcher/jQuery.style.switcher.js"></script>

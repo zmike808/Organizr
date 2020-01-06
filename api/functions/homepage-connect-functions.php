@@ -128,6 +128,7 @@ function streamType($value)
 
 function resolveEmbyItem($itemDetails)
 {
+	/*
 	// Grab Each item info from Emby (extra call)
 	$id = isset($itemDetails['NowPlayingItem']['Id']) ? $itemDetails['NowPlayingItem']['Id'] : $itemDetails['Id'];
 	$url = qualifyURL($GLOBALS['embyURL']);
@@ -141,6 +142,8 @@ function resolveEmbyItem($itemDetails)
 	} catch (Requests_Exception $e) {
 		return false;
 	};
+	*/
+	$item = isset($itemDetails['NowPlayingItem']['Id']) ? $itemDetails['NowPlayingItem'] : $itemDetails;
 	// Static Height & Width
 	$height = getCacheImageSize('h');
 	$width = getCacheImageSize('w');
@@ -248,7 +251,8 @@ function resolveEmbyItem($itemDetails)
 	$embyItem['user'] = ($GLOBALS['homepageShowStreamNames'] && qualifyRequest($GLOBALS['homepageShowStreamNamesAuth'])) ? @(string)$itemDetails['UserName'] : "";
 	$embyItem['userThumb'] = '';
 	$embyItem['userAddress'] = (isset($itemDetails['RemoteEndPoint']) ? $itemDetails['RemoteEndPoint'] : "x.x.x.x");
-	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/itemdetails.html?id=" . $embyItem['uid'] : "https://app.emby.media/#!/itemdetails.html?id=" . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
+	$embyURL = (strpos($GLOBALS['embyURL'], 'jellyfin') !== false) ? $GLOBALS['embyURL'] . '/web/index.html#!/itemdetails.html?id=' : 'https://app.emby.media/#!/itemdetails.html?id=';
+	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/itemdetails.html?id=" . $embyItem['uid'] : $embyURL . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
 	$embyItem['nowPlayingOriginalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['nowPlayingImageType'] . '&img=' . $embyItem['nowPlayingThumb'] . '&height=' . $nowPlayingHeight . '&width=' . $nowPlayingWidth . '&key=' . $embyItem['nowPlayingKey'] . '$' . randString();
 	$embyItem['originalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['imageType'] . '&img=' . $embyItem['thumb'] . '&height=' . $height . '&width=' . $width . '&key=' . $embyItem['key'] . '$' . randString();
 	$embyItem['openTab'] = $GLOBALS['embyTabURL'] && $GLOBALS['embyTabName'] ? true : false;
@@ -464,7 +468,7 @@ function resolvePlexItem($item)
 		'platform' => (string)$item->Player['platform'],
 		'product' => (string)$item->Player['product'],
 		'device' => (string)$item->Player['device'],
-		'stream' => (string)$item->Media->Part['decision'] . ($item->TranscodeSession['throttled'] == '1' ? ' (Throttled)' : ''),
+		'stream' => isset($item->Media) ? (string)$item->Media->Part['decision'] . ($item->TranscodeSession['throttled'] == '1' ? ' (Throttled)' : '') : '',
 		'videoResolution' => (string)$item->Media['videoResolution'],
 		'throttled' => ($item->TranscodeSession['throttled'] == 1) ? true : false,
 		'sourceVideoCodec' => (string)$item->TranscodeSession['sourceVideoCodec'],
@@ -668,15 +672,16 @@ function getPlexPlaylists()
 	return false;
 }
 
-function embyConnect($action, $key = null, $skip = false)
+function embyConnect($action, $key = 'Latest', $skip = false)
 {
 	if ($GLOBALS['homepageEmbyEnabled'] && !empty($GLOBALS['embyURL']) && !empty($GLOBALS['embyToken']) && qualifyRequest($GLOBALS['homepageEmbyAuth'])) {
 		$url = qualifyURL($GLOBALS['embyURL']);
 		switch ($action) {
 			case 'streams':
-				$url = $url . '/Sessions?api_key=' . $GLOBALS['embyToken'];
+				$url = $url . '/Sessions?api_key=' . $GLOBALS['embyToken'] . '&Fields=Overview,People,Genres,CriticRating,Studios,Taglines';
 				break;
 			case 'recent':
+			case 'metadata':
 				$username = false;
 				if (isset($GLOBALS['organizrUser']['username'])) {
 					$username = strtolower($GLOBALS['organizrUser']['username']);
@@ -699,23 +704,15 @@ function embyConnect($action, $key = null, $skip = false)
 								break;
 							}
 						}
-						$url = $url . '/Users/' . $userId . '/Items/Latest?EnableImages=false&Limit=' . $GLOBALS['homepageRecentLimit'] . '&api_key=' . $GLOBALS['embyToken'] . ($showPlayed ? '' : '&IsPlayed=false');
+						$url = $url . '/Users/' . $userId . '/Items/' . $key . '?EnableImages=true&Limit=' . $GLOBALS['homepageRecentLimit'] . '&api_key=' . $GLOBALS['embyToken'] . ($showPlayed ? '' : '&IsPlayed=false') . '&Fields=Overview,People,Genres,CriticRating,Studios,Taglines';
 					}
 				} catch (Requests_Exception $e) {
 					writeLog('error', 'Emby Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				};
 				break;
-			case 'metadata':
-				$skip = true;
-				break;
 			default:
 				# code...
 				break;
-		}
-		if ($skip && $key) {
-			$items[] = resolveEmbyItem(array('Id' => $key));
-			$api['content'] = $items;
-			return $api;
 		}
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
@@ -723,11 +720,18 @@ function embyConnect($action, $key = null, $skip = false)
 			if ($response->success) {
 				$items = array();
 				$emby = json_decode($response->body, true);
-				foreach ($emby as $child) {
-					if (isset($child['NowPlayingItem']) || isset($child['Name'])) {
-						$items[] = resolveEmbyItem($child);
+				if($key !== 'Latest'){
+					if (isset($emby['NowPlayingItem']) || isset($emby['Name'])) {
+						$items[] = resolveEmbyItem($emby);
+					}
+				}else{
+					foreach ($emby as $child) {
+						if (isset($child['NowPlayingItem']) || isset($child['Name'])) {
+							$items[] = resolveEmbyItem($child);
+						}
 					}
 				}
+				
 				$api['content'] = array_filter($items);
 				return $api;
 			}
@@ -1031,7 +1035,9 @@ function qBittorrentConnect()
 	if ($GLOBALS['homepageqBittorrentEnabled'] && !empty($GLOBALS['qBittorrentURL']) && qualifyRequest($GLOBALS['homepageqBittorrentAuth'])) {
 		$digest = qualifyURL($GLOBALS['qBittorrentURL'], true);
 		$data = array('username' => $GLOBALS['qBittorrentUsername'], 'password' => decrypt($GLOBALS['qBittorrentPassword']));
-		$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . '/login';
+		$apiVersionLogin = ($GLOBALS['qBittorrentApiVersion'] == '1') ? '/login' : '/api/v2/auth/login';
+		$apiVersionQuery = ($GLOBALS['qBittorrentApiVersion'] == '1') ? '/query/torrents?sort=' : '/api/v2/torrents/info?sort=';
+		$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . $apiVersionLogin;
 		try {
 			$options = (localURL($GLOBALS['qBittorrentURL'])) ? array('verify' => false) : array();
 			$response = Requests::post($url, array(), $data, $options);
@@ -1044,7 +1050,7 @@ function qBittorrentConnect()
 					'Cookie' => 'SID=' . $cookie['SID']->value
 				);
 				$reverse = $GLOBALS['qBittorrentReverseSorting'] ? 'true' : 'false';
-				$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . '/query/torrents?sort=' . $GLOBALS['qBittorrentSortOrder'] . '&reverse=' . $reverse;
+				$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . $apiVersionQuery . $GLOBALS['qBittorrentSortOrder'] . '&reverse=' . $reverse;
 				$response = Requests::get($url, $headers, $options);
 				if ($response) {
 					$torrentList = json_decode($response->body, true);
@@ -2333,16 +2339,29 @@ function getOmbiRequests($type = "both", $limit = 50)
 
 function unifiConnect()
 {
-	if ($GLOBALS['homepageUnifiEnabled'] && !empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiSiteName']) && !empty($GLOBALS['unifiCookie']) && !empty($GLOBALS['unifiUsername']) && !empty($GLOBALS['unifiPassword']) && qualifyRequest($GLOBALS['homepageUnifiAuth'])) {
+	if ($GLOBALS['homepageUnifiEnabled'] && !empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiSiteName']) && !empty($GLOBALS['unifiUsername']) && !empty($GLOBALS['unifiPassword']) && qualifyRequest($GLOBALS['homepageUnifiAuth'])) {
 		$api['content']['unifi'] = array();
 		$url = qualifyURL($GLOBALS['unifiURL']);
-		$url = $url . '/api/s/' . $GLOBALS['unifiSiteName'] . '/stat/health';
+		$urlStat = $url . '/api/s/' . $GLOBALS['unifiSiteName'] . '/stat/health';
 		try {
 			$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
-			$headers = array(
-				'cookie' => $GLOBALS['unifiCookie']
+			$data = array(
+				'username' => $GLOBALS['unifiUsername'],
+				'password' => decrypt($GLOBALS['unifiPassword']),
+				'remember' => true,
+				'strict' => true
 			);
-			$response = Requests::get($url, $headers, $options);
+			$response = Requests::post($url . '/api/login', array(), json_encode($data), $options);
+			if ($response->success) {
+				$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
+				$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
+			}else{
+				return false;
+			}
+			$headers = array(
+				'cookie' => 'unifises=' . $cookie['unifises'] . ';' . 'csrf_token=' . $cookie['csrf_token'] . ';'
+			);
+			$response = Requests::get($urlStat, $headers, $options);
 			if ($response->success) {
 				$api['content']['unifi'] = json_decode($response->body, true);
 			}
@@ -2358,8 +2377,8 @@ function unifiConnect()
 function testAPIConnection($array)
 {
 	switch ($array['data']['action']) {
-		case 'unifiCookie':
-			if (!empty($GLOBALS['unifiURL'])  && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword'])) {
+		case 'unifiSite':
+			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword'])) {
 				$url = qualifyURL($GLOBALS['unifiURL']);
 				try {
 					$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
@@ -2373,22 +2392,11 @@ function testAPIConnection($array)
 					if ($response->success) {
 						$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
 						$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
-						return $cookie;
 					}else{
 						return false;
 					}
-				} catch (Requests_Exception $e) {
-					writeLog('error', 'Unifi Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
-				};
-			}
-			break;
-		case 'unifiSite':
-			if (!empty($GLOBALS['unifiURL'])  && !empty($GLOBALS['unifiCookie']) && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword'])) {
-				$url = qualifyURL($GLOBALS['unifiURL']);
-				try {
-					$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
 					$headers = array(
-						'cookie' => $GLOBALS['unifiCookie']
+						'cookie' => 'unifises=' . $cookie['unifises'] . ';' . 'csrf_token=' . $cookie['csrf_token'] . ';'
 					);
 					$response = Requests::get($url . '/api/self/sites', $headers, $options);
 					if ($response->success) {
@@ -2400,6 +2408,37 @@ function testAPIConnection($array)
 				} catch (Requests_Exception $e) {
 					writeLog('error', 'Unifi Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				};
+			}
+			break;
+		case 'unifi':
+			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword']) && !empty($GLOBALS['unifiSiteName'])) {
+				$url = qualifyURL($GLOBALS['unifiURL']);
+				try {
+					$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
+					$data = array(
+						'username' => $GLOBALS['unifiUsername'],
+						'password' => decrypt($GLOBALS['unifiPassword']),
+						'remember' => true,
+						'strict' => true
+					);
+					$response = Requests::post($url . '/api/login', array(), json_encode($data), $options);
+					if ($response->success) {
+						$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
+						$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
+					}else{
+						return 'Failed to Login';
+					}
+					$headers = array(
+						'cookie' => 'unifises=' . $cookie['unifises'] . ';' . 'csrf_token=' . $cookie['csrf_token'] . ';'
+					);
+					$response = Requests::get($url . '/api/s/'.$GLOBALS['unifiSiteName'].'/self', $headers, $options);
+					$body = json_decode($response->body, true);
+					return ($body['meta']['rc'] == 'ok') ? true : $body['meta']['msg'];
+				} catch (Requests_Exception $e) {
+					writeLog('error', 'Unifi Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+				};
+			}else{
+				return 'Not all data is filled in...';
 			}
 			break;
 		case 'ombi':

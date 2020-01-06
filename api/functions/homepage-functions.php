@@ -527,6 +527,16 @@ function getHomepageList()
 			'value' => 'statusa'
 		),
 	);
+	$qBittorrentApiOptions = array(
+		array(
+			'name' => 'V1',
+			'value' => '1'
+		),
+		array(
+			'name' => 'V2',
+			'value' => '2'
+		),
+	);
 	$qBittorrentSortOptions = array(
 		array(
 			'name' => 'Hash',
@@ -872,7 +882,7 @@ function getHomepageList()
 			)
 		),
 		array(
-			'name' => 'Emby',
+			'name' => 'Emby-Jellyfin',
 			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
 			'image' => 'plugins/images/tabs/emby.png',
 			'category' => 'Media Server',
@@ -898,8 +908,8 @@ function getHomepageList()
 						'name' => 'embyURL',
 						'label' => 'URL',
 						'value' => $GLOBALS['embyURL'],
-						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
-						'placeholder' => 'http(s)://hostname:port'
+						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too. Make sure if Jelly fin to end url with /jellyfin',
+						'placeholder' => 'http(s)://hostname:port - make sure if Jelly fin to end url with /jellyfin'
 					),
 					array(
 						'type' => 'password-alt',
@@ -1338,6 +1348,13 @@ function getHomepageList()
 						'placeholder' => 'http(s)://hostname:port'
 					),
 					array(
+						'type' => 'select',
+						'name' => 'qBittorrentApiVersion',
+						'label' => 'API Version',
+						'value' => $GLOBALS['qBittorrentApiVersion'],
+						'options' => $qBittorrentApiOptions
+					),
+					array(
 						'type' => 'input',
 						'name' => 'qBittorrentUsername',
 						'label' => 'Username',
@@ -1356,7 +1373,8 @@ function getHomepageList()
 						'name' => 'qBittorrentHideSeeding',
 						'label' => 'Hide Seeding',
 						'value' => $GLOBALS['qBittorrentHideSeeding']
-					), array(
+					),
+					array(
 						'type' => 'switch',
 						'name' => 'qBittorrentHideCompleted',
 						'label' => 'Hide Completed',
@@ -2259,21 +2277,6 @@ function getHomepageList()
 						'name' => 'unifiPassword',
 						'label' => 'Password',
 						'value' => $GLOBALS['unifiPassword']
-					),
-					array(
-						'type' => 'input',
-						'name' => 'unifiCookie',
-						'label' => 'Cookie',
-						'value' => $GLOBALS['unifiCookie'],
-						'help' => 'Cookie for Unifi - Save username and password before clicking get cookie button',
-						'placeholder' => 'Click help button'
-					),
-					array(
-						'type' => 'button',
-						'label' => 'Grab Unifi Cookie',
-						'icon' => 'fa fa-globe',
-						'text' => 'Get Unifi Cookie',
-						'attr' => 'onclick="getUnifiCookie(\'unifiCookie\')"'
 					),
 					array(
 						'type' => 'input',
