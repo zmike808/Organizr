@@ -22,6 +22,8 @@ function homepageOrder()
 		"homepageOrderdownloader" => $GLOBALS['homepageOrderdownloader'],
 		"homepageOrderhealthchecks" => $GLOBALS['homepageOrderhealthchecks'],
 		"homepageOrderunifi" => $GLOBALS['homepageOrderunifi'],
+		"homepageOrdertautulli" => $GLOBALS['homepageOrdertautulli'],
+		"homepageOrderPihole" => $GLOBALS['homepageOrderPihole'],
 	);
 	asort($homepageOrder);
 	return $homepageOrder;
@@ -331,6 +333,29 @@ function buildHomepageItem($homepageItem)
 				';
 			}
 			break;
+		case 'homepageOrdertautulli':
+			if ($GLOBALS['homepageTautulliEnabled'] && qualifyRequest($GLOBALS['homepageTautulliAuth'])) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Tautulli...</h2></div>';
+				$item .= '
+				<script>
+				// Tautulli
+				homepageTautulli("' . $GLOBALS['homepageTautulliRefresh'] . '");
+				// End Tautulli
+				</script>
+				';
+			}
+			break;
+		case 'homepageOrderPihole':
+			if ($GLOBALS['homepagePiholeEnabled']) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Pi-hole Stats...</h2></div>';
+				$item .= '
+				<script>
+				// Pi-hole Stats
+				homepagePihole("' . $GLOBALS['homepagePiholeRefresh'] . '");
+				// End Pi-hole Stats
+				</script>
+				';
+			}
 		default:
 			# code...
 			break;
@@ -1424,11 +1449,21 @@ function getHomepageList()
 						    <div class="col-lg-12">
 						        <div class="panel panel-info">
 						            <div class="panel-heading">
-						                <span lang="en">This module requires XMLRPC</span>
+						                <span lang="en">ATTENTION</span>
 						            </div>
 						            <div class="panel-wrapper collapse in" aria-expanded="true">
 						                <div class="panel-body">
+						                	<h4 lang="en">This module requires XMLRPC</h4>
 						                    <span lang="en">Status: [ <b>' . $xmlStatus . '</b> ]</span>
+						                    <br/></br>
+						                    <span lang="en">
+						                    	<h4><b>Note about API URL</b></h4>
+						                    	Organizr appends the url with <code>/RPC2</code> unless the URL ends in <code>.php</code><br/>
+						                    	<h5>Possible URLs:</h5>
+						                    	<li>http://localhost:8080</li>
+						                    	<li>https://domain.site/xmlrpc.php</li>
+						                    	<li>https://seedbox.site/rutorrent/plugins/httprpc/action.php</li>
+						                    </span>
 						                </div>
 						            </div>
 						        </div>
@@ -1458,7 +1493,7 @@ function getHomepageList()
 						'name' => 'rTorrentURL',
 						'label' => 'URL',
 						'value' => $GLOBALS['rTorrentURL'],
-						'help' => 'Only use if you cannot connect.  Please make sure to use local IP address and port - You also may use local dns name too.',
+						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
 						'placeholder' => 'http(s)://hostname:port'
 					),
 					array(
@@ -1466,7 +1501,7 @@ function getHomepageList()
 						'name' => 'rTorrentURLOverride',
 						'label' => 'rTorrent API URL Override',
 						'value' => $GLOBALS['rTorrentURLOverride'],
-						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
+						'help' => 'Only use if you cannot connect.  Please make sure to use local IP address and port - You also may use local dns name too.',
 						'placeholder' => 'http(s)://hostname:port/xmlrpc'
 					),
 					array(
@@ -1480,7 +1515,13 @@ function getHomepageList()
 						'name' => 'rTorrentPassword',
 						'label' => 'Password',
 						'value' => $GLOBALS['rTorrentPassword']
-					)
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'rTorrentDisableCertCheck',
+						'label' => 'Disable Certificate Check',
+						'value' => $GLOBALS['rTorrentDisableCertCheck']
+					),
 				),
 				'Misc Options' => array(
 					array(
@@ -2449,7 +2490,188 @@ function getHomepageList()
 					),
 				)
 			)
-		)
+		),
+		array(
+			'name' => 'Misc',
+			'enabled' => true,
+			'image' => 'plugins/images/organizr/logo-no-border.png',
+			'category' => 'Custom',
+			'settings' => array(
+				'YouTube' => array(
+					array(
+						'type' => 'input',
+						'name' => 'youtubeAPI',
+						'label' => 'Youtube API Key',
+						'value' => $GLOBALS['youtubeAPI'],
+						'help' => 'Please make sure to input this API key as the organizr one gets limited'
+					),
+					array(
+						'type' => 'html',
+						'override' => 6,
+						'label' => 'Instructions',
+						'html' => '<a href="https://www.slickremix.com/docs/get-api-key-for-youtube/" target="_blank">Click here for instructions</a>'
+					),
+				)
+			)
+		),
+    array(
+      'name' => 'Pi-hole',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/pihole.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepagePiholeEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepagePiholeEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepagePiholeAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepagePiholeAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'piholeURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['piholeURL'],
+						'help' => 'Please make sure to use local IP address and port and to include \'/admin/\' at the end of the URL. You can add multiple Pi-holes by comma separating the URLs.',
+						'placeholder' => 'http(s)://hostname:port/admin/'
+					),
+				),
+				'Misc' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepagePiholeCombine',
+						'label' => 'Combine stat cards',
+						'value' => $GLOBALS['homepagePiholeCombine'],
+						'help' => 'This controls whether to combine the stats for multiple piholes into 1 card.',
+					),
+				),
+			)
+    ),
+		array(
+			'name' => 'Tautulli',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/tautulli.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageTautulliEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageTautulliEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageTautulliAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageTautulliAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'tautulliURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['tautulliURL'],
+						'help' => 'URL for Tautulli API, include the IP, the port and the base URL (e.g. /tautulli/) in the URL',
+						'placeholder' => 'http://<ip>:<port>'
+					),
+					array(
+						'type' => 'password-alt',
+						'name' => 'tautulliApikey',
+						'label' => 'API Key',
+						'value' => $GLOBALS['tautulliApikey']
+					)
+				),
+				'Library Stats' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliLibraries',
+						'label' => 'Libraries',
+						'value' => $GLOBALS['tautulliLibraries'],
+						'help' => 'Shows/hides the card with library information.',
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageTautulliLibraryAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageTautulliLibraryAuth'],
+						'options' => $groups
+					),
+				),
+				'Viewing Stats' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliPopularMovies',
+						'label' => 'Popular Movies',
+						'value' => $GLOBALS['tautulliPopularMovies'],
+						'help' => 'Shows/hides the card with Popular Movies information.',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliPopularTV',
+						'label' => 'Popular TV',
+						'value' => $GLOBALS['tautulliPopularTV'],
+						'help' => 'Shows/hides the card with Popular TV information.',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliTopMovies',
+						'label' => 'Top Movies',
+						'value' => $GLOBALS['tautulliTopMovies'],
+						'help' => 'Shows/hides the card with Top Movies information.',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliTopTV',
+						'label' => 'Top TV',
+						'value' => $GLOBALS['tautulliTopTV'],
+						'help' => 'Shows/hides the card with Top TV information.',
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageTautulliViewsAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageTautulliViewsAuth'],
+						'options' => $groups
+					),
+				),
+				'Misc Stats' => array(
+					
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliTopUsers',
+						'label' => 'Top Users',
+						'value' => $GLOBALS['tautulliTopUsers'],
+						'help' => 'Shows/hides the card with Top Users information.',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliTopPlatforms',
+						'label' => 'Top Platforms',
+						'value' => $GLOBALS['tautulliTopPlatforms'],
+						'help' => 'Shows/hides the card with Top Platforms information.',
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageTautulliMiscAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageTautulliMiscAuth'],
+						'options' => $groups
+					),
+				),
+			)
+		),
 	);
 }
 
@@ -2572,6 +2794,20 @@ function buildHomepageSettings()
 				$class = 'bg-info';
 				$image = 'plugins/images/tabs/ubnt.png';
 				if (!$GLOBALS['homepageUnifiEnabled']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrdertautulli':
+					$class = 'bg-info';
+					$image = 'plugins/images/tabs/tautulli.png';
+					if (!$GLOBALS['homepageTautulliEnabled']) {
+						$class .= ' faded';
+					}
+					break;
+			case 'homepageOrderPihole':
+				$class = 'bg-info';
+				$image = 'plugins/images/tabs/pihole.png';
+				if (!$GLOBALS['homepagePiholeEnabled']) {
 					$class .= ' faded';
 				}
 				break;

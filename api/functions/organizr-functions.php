@@ -107,6 +107,9 @@ function organizrSpecialSettings()
 		'login' => array(
 			'rememberMe' => $GLOBALS['rememberMe'],
 			'rememberMeDays' => $GLOBALS['rememberMeDays'],
+			'wanDomain' => $GLOBALS['wanDomain'],
+			'localAddress' => $GLOBALS['localAddress'],
+			'enableLocalAddressForward' => $GLOBALS['enableLocalAddressForward'],
 		),
 		'misc' => array(
 			'installedPlugins' => qualifyRequest(1) ? $GLOBALS['installedPlugins'] : '',
@@ -820,7 +823,30 @@ function getSettingsMain()
 						'value' => 'allow-top-navigation'
 					),
 				)
-			)
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'traefikAuthEnable',
+				'label' => 'Enable Traefik Auth Redirect',
+				'help' => 'This will enable the webserver to forward errors so traefik will accept them',
+				'value' => $GLOBALS['traefikAuthEnable']
+			),
+		),
+		'Performance' => array(
+			array(
+				'type' => 'switch',
+				'name' => 'performanceDisableIconDropdown',
+				'label' => 'Disable Icon Dropdown',
+				'help' => 'Disable select dropdown boxes on new and edit tab forms',
+				'value' => $GLOBALS['performanceDisableIconDropdown'],
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'performanceDisableImageDropdown',
+				'label' => 'Disable Image Dropdown',
+				'help' => 'Disable select dropdown boxes on new and edit tab forms',
+				'value' => $GLOBALS['performanceDisableImageDropdown'],
+			),
 		),
 		'Login' => array(
 			array(
@@ -868,6 +894,29 @@ function getSettingsMain()
 				'value' => $GLOBALS['localIPTo'],
 				'placeholder' => 'i.e. 123.123.123.123',
 				'help' => 'IPv4 only at the moment - This will set your login as local if your IP falls within the From and To'
+			),
+			array(
+				'type' => 'input',
+				'name' => 'wanDomain',
+				'label' => 'WAN Domain',
+				'value' => $GLOBALS['wanDomain'],
+				'placeholder' => 'only domain and tld - i.e. domain.com',
+				'help' => 'Enter domain if you wish to be forwarded to a local address - Local Address filled out on next item'
+			),
+			array(
+				'type' => 'input',
+				'name' => 'localAddress',
+				'label' => 'Local Address',
+				'value' => $GLOBALS['localAddress'],
+				'placeholder' => 'http://home.local',
+				'help' => 'Full local address of organizr install - i.e. http://home.local or http://192.168.0.100'
+			),
+			array(
+				'type' => 'switch',
+				'name' => 'enableLocalAddressForward',
+				'label' => 'Enable Local Address Forward',
+				'help' => 'Enables the local address forward if on local address and accessed from WAN Domain',
+				'value' => $GLOBALS['enableLocalAddressForward'],
 			),
 		),
 		'Auth Proxy' => array(
@@ -1091,6 +1140,7 @@ function loadAppearance()
 	$appearance['logo'] = $GLOBALS['logo'];
 	$appearance['title'] = $GLOBALS['title'];
 	$appearance['useLogo'] = $GLOBALS['useLogo'];
+	$appearance['useLogoLogin'] = $GLOBALS['useLogoLogin'];
 	$appearance['headerColor'] = $GLOBALS['headerColor'];
 	$appearance['headerTextColor'] = $GLOBALS['headerTextColor'];
 	$appearance['sidebarColor'] = $GLOBALS['sidebarColor'];
@@ -1159,6 +1209,12 @@ function getCustomizeAppearance()
 				),
 				array(
 					'type' => 'switch',
+					'name' => 'useLogoLogin',
+					'label' => 'Use Logo instead of Title on Login Page',
+					'value' => $GLOBALS['useLogoLogin']
+				),
+				array(
+					'type' => 'switch',
 					'name' => 'minimalLoginScreen',
 					'label' => 'Minimal Login Screen',
 					'value' => $GLOBALS['minimalLoginScreen']
@@ -1216,6 +1272,7 @@ function getCustomizeAppearance()
 					            <div class="panel-wrapper collapse in" aria-expanded="true">
 					                <div class="panel-body">
 					                    <span lang="en">The value of #987654 is just a placeholder, you can change to any value you like.</span>
+					                    <span lang="en">To revert back to default, save with no value defined in the relevant field.</span>
 					                </div>
 					            </div>
 					        </div>
@@ -1608,15 +1665,16 @@ function auth()
 	$ban = isset($_GET['ban']) ? strtoupper($_GET['ban']) : "";
 	$whitelist = isset($_GET['whitelist']) ? $_GET['whitelist'] : false;
 	$blacklist = isset($_GET['blacklist']) ? $_GET['blacklist'] : false;
-    $group = 0;
-    $groupParam = $_GET['group'];
-    if(isset($groupParam)) {
-        if (is_numeric($groupParam)) {
-            $group = (int)$groupParam;
-        } else {
-            $group = getTabGroup($groupParam);
-        }
-    }
+	$group = 0;
+	$groupParam = $_GET['group'];
+	$redirect = false;
+	if(isset($groupParam)) {
+		if (is_numeric($groupParam)) {
+			$group = (int)$groupParam;
+		} else {
+			$group = getTabGroup($groupParam);
+		}
+	}
 	$currentIP = userIP();
 	$unlocked = ($GLOBALS['organizrUser']['locked'] == '1') ? false : true;
 	if (isset($GLOBALS['organizrUser'])) {
@@ -1640,15 +1698,18 @@ function auth()
 		}
 	}
 	if ($group !== null) {
+		if ((isset($_SERVER['HTTP_X_FORWARDED_SERVER']) && $_SERVER['HTTP_X_FORWARDED_SERVER'] == 'traefik') || $GLOBALS['traefikAuthEnable']) {
+			$redirect = 'Location: ' . getServerPath();
+		}
 		if (qualifyRequest($group) && $unlocked) {
 			header("X-Organizr-User: $currentUser");
 			header("X-Organizr-Email: $currentEmail");
 			!$debug ? exit(http_response_code(200)) : die("$userInfo Authorized");
 		} else {
-			!$debug ? exit(http_response_code(401)) : die("$userInfo Not Authorized");
+			!$debug ? (!$redirect ? exit(http_response_code(401)) : exit(http_response_code(401) . header($redirect))) : die("$userInfo Not Authorized");
 		}
 	} else {
-		!$debug ? exit(http_response_code(401)) : die("Not Authorized Due To No Parameters Set");
+		!$debug ? (!$redirect ? exit(http_response_code(401)) : exit(http_response_code(401) . header($redirect))) : die("Not Authorized Due To No Parameters Set");
 	}
 }
 
@@ -1668,7 +1729,7 @@ function getTabGroup ($tab)
 
 function logoOrText()
 {
-	if ($GLOBALS['useLogo'] == false) {
+	if ($GLOBALS['useLogoLogin'] == false) {
 		return '<h1>' . $GLOBALS['title'] . '</h1>';
 	} else {
 		return '<img class="loginLogo" src="' . $GLOBALS['loginLogo'] . '" alt="Home" />';
@@ -1971,13 +2032,23 @@ function getImage()
 		if (file_exists($cachefile) && time() - $cachetime < filemtime($cachefile) && $refresh == false) {
 			header("Content-type: image/jpeg");
 			//@readfile($cachefile);
-			echo @curl('get', $cachefile)['content'];
+			//echo @curl('get', $cachefile)['content'];
+			$options = array('verify' => false);
+			$response = Requests::get($cachefile, array(), $options);
+			if ($response->success) {
+				echo $response->body;
+			}
 			exit;
 		}
 		ob_start(); // Start the output buffer
 		header('Content-type: image/jpeg');
 		//@readfile($image_src);
-		echo @curl('get', $image_src)['content'];
+		//echo @curl('get', $image_src)['content'];
+		$options = array('verify' => false);
+		$response = Requests::get($image_src, array(), $options);
+		if ($response->success) {
+			echo $response->body;
+		}
 		// Cache the output to a file
 		$fp = fopen($cachefile, 'wb');
 		fwrite($fp, ob_get_contents());

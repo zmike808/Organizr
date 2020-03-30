@@ -14,6 +14,7 @@ lang.init({
 	allowCookieOverride: true
 });
 var OAuthLoginNeeded = false;
+var pingOrg = false;
 var timeouts = {};
 var increment = 0;
 var tabInformation = {};
@@ -446,6 +447,7 @@ function logout(){
         }
 		if(html.data == true){
             local('set','message','Goodbye|Logout Successful|success');
+            history.replaceState(null, null, ' ');
 			location.reload();
 		}else{
 			message('Logout Error',' An Error Occured',activeInfo.settings.notifications.position,'#FFF','warning','10000');
@@ -2637,6 +2639,7 @@ function tabProcess(arrayItems) {
 		noTabs(arrayItems);
 	}
 	$(menuExtras(arrayItems.data.user.loggedin)).appendTo($('#side-menu'));
+    new SimpleBar($('.sidebar')[0], { direction: 'rtl' });
 }
 function buildLogin(){
 	swapDisplay('login');
@@ -4334,7 +4337,7 @@ function buildRequestItem(array, extra=null){
 				var user = (activeInfo.user.groupID <= 1) ? '<span lang="en">Requested By:</span> '+v.user : '';
 				var user2 = (activeInfo.user.groupID <= 1) ? '<br>'+v.user : '';
 				items += `
-				<div class="item lazyload recent-poster request-item request-`+v.type+` `+className+` mouse" data-target="request-`+v.id+`" data-src="`+v.poster+`">
+				<div class="item lazyload recent-poster request-item request-`+v.type+` `+className+` request-`+v.request_id+`-div mouse" data-target="request-`+v.id+`" data-src="`+v.poster+`">
 					<div class="outside-request-div">
 						<div class="inside-over-request-div `+badge2+`"></div>
 						<div class="inside-request-div `+badge+`"></div>
@@ -4824,8 +4827,9 @@ function processRequest(id,type){
 function ombiActions(id,action,type){
 	//console.log(id,action,type);
 	var msg = (activeInfo.user.groupID <= 1) ? '<a href="https://github.com/tidusjar/Ombi/issues/2176" target="_blank">Not Org Fault - Ask Ombi</a>' : 'Connection Error to Request Server';
-	ajaxloader('.preloader-'+id,'in');
-    ajaxloader('.mfp-content .white-popup .col-md-8 .white-box .user-bg','in');
+	ajaxloader('.request-' + id + '-div', 'in')
+    $.magnificPopup.close();
+    message(window.lang.translate('Submitting Action to Ombi'),'',activeInfo.settings.notifications.position,"#FFF",'success',"3500");
 	organizrAPI('POST','api/?v1/ombi',{id:id, action:action, type:type}).success(function(data) {
         try {
             var response = JSON.parse(data);
@@ -4838,7 +4842,6 @@ function ombiActions(id,action,type){
 		if(response.data !== false){
             if(action == 'delete'){
                 homepageRequests();
-                $.magnificPopup.close();
                 message(window.lang.translate('Deleted Request Item'),'',activeInfo.settings.notifications.position,"#FFF",'success',"3500");
                 return true;
             }
@@ -4849,12 +4852,11 @@ function ombiActions(id,action,type){
                 orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(response.data.bd));
                 return false;
             }
-            console.log(responseData);
+            //console.log(responseData);
             var responseMessage = (responseData.isError == true) ? responseData.errorMessage : 'Success';
             var responseType = (responseData.isError == true) ? 'error' : 'success';
 			homepageRequests();
 			if(action !== 'add'){
-				$.magnificPopup.close();
 				message(window.lang.translate('Updated Request Item'),responseMessage,activeInfo.settings.notifications.position,"#FFF",responseType,"3500");
 			}else{
 				ajaxloader();
@@ -5059,7 +5061,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts">`+v.filename+`</td>
-                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="hidden-xs sabnzbd-`+cleanClass(v.status)+`">`+v.status+`</td>
                     <td class="downloader mouse" data-target="`+v.nzo_id+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>
                     <td class="hidden-xs"><span class="label label-info">`+v.cat+`</span></td>
                     <td class="hidden-xs">`+v.size+`</td>
@@ -5079,7 +5081,7 @@ function buildDownloaderItem(array, source, type='none'){
                 history += `
                 <tr>
                     <td class="max-texts">`+v.name+`</td>
-                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="hidden-xs sabnzbd-`+cleanClass(v.status)+`">`+v.status+`</td>
                     <td class="hidden-xs"><span class="label label-info">`+v.category+`</span></td>
                     <td class="hidden-xs">`+v.size+`</td>
                     <td class="text-right">
@@ -5109,7 +5111,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts">`+v.NZBName+`</td>
-                    <td class="hidden-xs">`+v.Status+`</td>
+                    <td class="hidden-xs nzbget-`+cleanClass(v.Status)+`">`+v.Status+`</td>
                     <!--<td class="downloader mouse" data-target="`+v.NZBID+`" data-source="sabnzbd" data-action="`+action+`"><i class="fa fa-`+actionIcon+`"></i></td>-->
                     <td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
                     <td class="hidden-xs">`+humanFileSize(size,true)+`</td>
@@ -5130,7 +5132,7 @@ function buildDownloaderItem(array, source, type='none'){
                 history += `
                 <tr>
                     <td class="max-texts">`+v.NZBName+`</td>
-                    <td class="hidden-xs">`+v.Status+`</td>
+                    <td class="hidden-xs nzbget-`+cleanClass(v.Status)+`">`+v.Status+`</td>
                     <td class="hidden-xs"><span class="label label-info">`+v.Category+`</span></td>
                     <td class="hidden-xs">`+humanFileSize(size,true)+`</td>
                     <td class="text-right">
@@ -5193,7 +5195,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts">`+v.name+`</td>
-                    <td class="hidden-xs">`+status+`</td>
+                    <td class="hidden-xs transmission-`+cleanClass(status)+`">`+status+`</td>
                     <td class="hidden-xs">`+v.downloadDir+`</td>
                     <td class="hidden-xs">`+humanFileSize(v.totalSize,true)+`</td>
                     <td class="text-right">
@@ -5228,7 +5230,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+date+`">`+v.name+`</span></td>
-                    <td class="hidden-xs">`+v.status+`</td>
+                    <td class="hidden-xs rtorrent-`+cleanClass(v.status)+`">`+v.status+`</td>
                     <td class="hidden-xs"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+downTotal+`"><i class="fa fa-download"></i>&nbsp;`+download+`</span></td>
                     <td class="hidden-xs"><span class="tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+upTotal+`"><i class="fa fa-upload"></i>&nbsp;`+upload+`</span></td>
                     <td class="hidden-xs">`+size+`</td>
@@ -5289,7 +5291,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts">`+v.name+`</td>
-                    <td class="hidden-xs qbit-`+status+`">`+status+`</td>
+                    <td class="hidden-xs qbit-`+cleanClass(status)+`">`+status+`</td>
                     <td class="hidden-xs">`+v.save_path+`</td>
                     <td class="hidden-xs">`+size+`</td>
                     <td class="text-right">
@@ -5320,7 +5322,7 @@ function buildDownloaderItem(array, source, type='none'){
                 queue += `
                 <tr>
                     <td class="max-texts">`+v.name+`</td>
-                    <td class="hidden-xs">`+v.state+`</td>
+                    <td class="hidden-xs deluge-`+cleanClass(v.state)+`">`+v.state+`</td>
                     <td class="hidden-xs">`+size+`</td>
                     <td class="hidden-xs"><i class="fa fa-download"></i>&nbsp;`+download+`</td>
                     <td class="hidden-xs"><i class="fa fa-upload"></i>&nbsp;`+upload+`</td>
@@ -5676,6 +5678,23 @@ function buildHealthChecks(array){
 	<div class="clearfix"></div>
 	` : '';
 }
+function buildPihole(array){
+    if(array === false){ return ''; }
+    return (array) ? `
+    <div id="allPihole">
+		<div class="el-element-overlay row">
+		    <div class="col-md-12">
+		        <h4 class="pull-left homepage-element-title"><span lang="en">Pi-hole</span></h4>
+		        <hr class="hidden-xs ml-2">
+		    </div>
+			<div class="clearfix"></div>
+		    <div class="piholeCards col-sm-12">
+			    `+buildPiholeItem(array)+`
+			</div>
+		</div>
+	</div>
+    ` : 'hello';
+}
 function buildUnifi(array){
     if(array === false){ return ''; }
     var items = (typeof array.content.unifi.data !== 'undefined') ? array.content.unifi.data.length : false;
@@ -5856,6 +5875,180 @@ function buildHealthChecksItem(array){
         `
     });
     return checks;
+}
+function buildPiholeItem(array){
+    var stats = `
+    <style>
+    .bg-green {
+        background-color: #00a65a !important;
+    }
+    
+    .bg-aqua {
+        background-color: #00c0ef!important;
+    }
+    
+    .bg-yellow {
+        background-color: #f39c12!important;
+    }
+    
+    .bg-red {
+        background-color: #dd4b39!important;
+    }
+    
+    .pihole-stat {
+        color: #fff !important;
+    }
+    
+    .pihole-stat .card-body h3 {
+        font-size: 38px;
+        font-weight: 700;
+    }
+
+    .pihole-stat .card-body i {
+        font-size: 5em;
+        float: right;
+        color: #ffffff6b;
+    }
+
+    .inline-block {
+        display: inline-block;
+    }
+    </style>
+    `;
+    var length = Object.keys(array['data']).length;
+    var combine = array['options']['combine'];
+    var totalQueries = function(data) {
+        var card = `
+        <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+            <div class="card text-white mb-3 pihole-stat bg-green">
+                <div class="card-body">
+                    <div class="inline-block">
+                        <p>Total queries</p>`;
+        for(var key in data) {
+            var e = data[key];
+            card += `<h3 data-toggle="tooltip" data-placement="right" title="`+key+`">`+e['dns_queries_today'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")+`</h3>`;
+        };
+        card += `
+                    </div>
+                    <i class="fa fa-globe inline-block" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
+        `
+        return card;
+    };
+    var totalBlocked = function(data) {
+        var card = `
+        <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+            <div class="card bg-inverse text-white mb-3 pihole-stat bg-aqua">
+                <div class="card-body">
+                    <div class="inline-block">
+                        <p>Queries Blocked</p>`;
+        for(var key in data) {
+            var e = data[key];
+            card += `<h3 data-toggle="tooltip" data-placement="right" title="`+key+`">`+e['ads_blocked_today'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")+`</h3>`;
+        };
+        card += `
+                    </div>
+                    <i class="fa fa-hand-paper-o inline-block" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
+        `
+        return card;
+    };
+    var percentBlocked = function(data) {
+        var card = `
+        <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+            <div class="card bg-inverse text-white mb-3 pihole-stat bg-yellow">
+                <div class="card-body">
+                    <div class="inline-block">
+                        <p>Percent Blocked</p>`;
+        for(var key in data) {
+            var e = data[key];
+            card += `<h3 data-toggle="tooltip" data-placement="right" title="`+key+`">`+e['ads_percentage_today'].toFixed(1)+`%</h3>`
+        };
+        card += `
+                    </div>
+                    <i class="fa fa-pie-chart inline-block" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
+        `
+        return card;
+    };
+    var domainsBlocked = function(data) {
+        var card = `
+        <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+            <div class="card bg-inverse text-white mb-3 pihole-stat bg-red">
+                <div class="card-body">
+                    <div class="inline-block">
+                        <p>Domains on Blocklist</p>`;
+        for(var key in data) {
+            var e = data[key];
+            card += `<h3 data-toggle="tooltip" data-placement="right" title="`+key+`">`+e['domains_being_blocked'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")+`</h3>`;
+        };
+        card += `
+                    </div>
+                    <i class="fa fa-list inline-block" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
+        `
+        return card;
+    };
+    if(combine) {
+        stats += '<div class="row">'
+        stats += totalQueries(array['data']);
+        stats += totalBlocked(array['data']);
+        stats += percentBlocked(array['data']);
+        stats += domainsBlocked(array['data']);
+        stats += '</div>';
+    } else {
+        for(var key in array['data']) {
+            if(length > 1) {
+                stats += `
+                <div class="row mb-2">
+                    <div class="col-sm-12">
+                        `+key+`
+                    </div>
+                </div>
+                `;
+            }
+            var data = array['data'][key];
+            obj = {};
+            obj[key] = data;
+            stats += '<div class="row">'
+            stats += totalQueries(obj);
+            stats += totalBlocked(obj);
+            stats += percentBlocked(obj);
+            stats += domainsBlocked(obj);
+            stats += '</div>';
+        };
+    }
+    return stats;
+}
+function homepagePihole(timeout){
+    var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepagePiholeRefresh;
+    organizrAPI('POST','api/?v1/homepage/connect',{action:'getPihole'}).success(function(data) {
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+            return false;
+        }
+        document.getElementById('homepageOrderPihole').innerHTML = '';
+        if(response.data !== null){
+            buildPihole(response.data)
+            $('#homepageOrderPihole').html(buildPihole(response.data));
+        }
+    }).fail(function(xhr) {
+        console.error("Organizr Function: API Connection Failed");
+    });
+    var timeoutTitle = 'PiHole-Homepage';
+    if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
+    timeouts[timeoutTitle] = setTimeout(function(){ homepagePihole(timeout); }, timeout);
 }
 function homepageHealthChecks(tags, timeout){
     var tags = (typeof tags !== 'undefined') ? tags : activeInfo.settings.homepage.options.healthChecksTags;
@@ -6188,6 +6381,279 @@ function homepageCalendar(timeout){
 	if(typeof timeouts['calendar-Homepage'] !== 'undefined'){ clearTimeout(timeouts['calendar-Homepage']); }
 	timeouts['calendar-Homepage'] = setTimeout(function(){ homepageCalendar(timeout); }, timeout);
 }
+function buildTautulliItem(array){
+    var cards = `
+    <style>
+    .homepage-tautulli-card .poster {
+        max-width: 100%;
+        max-height: 15em;
+    }
+
+    .homepage-tautulli-card .lib-icon {
+        max-width: 100%;
+        height: 7.5em;
+    }
+
+    .homepage-tautulli-card .avatar {
+        border-radius: 50%;
+    }
+
+    .homepage-tautulli-card .align-self-center {
+        text-align: center;
+    }
+
+    .homepage-tautulli-card ol.pl-2 li p {
+        font-weight: 700;
+        font-size: 16px;
+    }
+
+    .one-line {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .homepage-tautulli-card .bg-img-cont {
+        overflow: hidden;
+        pointer-events: none;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+    }
+
+    .homepage-tautulli-card .bg-img {
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        filter: blur(7px) brightness(50%);
+    }
+
+    .lib-stats-row::before {
+        content: none !important;
+    }
+
+    .card-bg-colour {
+        background-color: #7b7b7b2e;
+    }
+
+    .platform-android-rgba { background-color: rgba(164, 202, 57, 0.40); }
+    .platform-atv-rgba { background-color: rgba(133, 132, 135, 0.40); }
+    .platform-chrome-rgba { background-color: rgba(237, 94, 80, 0.40); }
+    .platform-chromecast-rgba { background-color: rgba(16, 164, 232, 0.40); }
+    .platform-default-rgba { background-color: rgba(229, 160, 13, 0.40); }
+    .platform-dlna-rgba { background-color: rgba(12, 177, 75, 0.40); }
+    .platform-firefox-rgba { background-color: rgba(230, 120, 23, 0.40); }
+    .platform-gtv-rgba { background-color: rgba(0, 139, 207, 0.40); }
+    .platform-ie-rgba { background-color: rgba(0, 89, 158, 0.40); }
+    .platform-ios-rgba { background-color: rgba(133, 132, 135, 0.40); }
+    .platform-kodi-rgba { background-color: rgba(49, 175, 225, 0.40); }
+    .platform-linux-rgba { background-color: rgba(23, 147, 208, 0.40); }
+    .platform-macos-rgba { background-color: rgba(133, 132, 135, 0.40); }
+    .platform-msedge-rgba { background-color: rgba(0, 120, 215, 0.40); }
+    .platform-opera-rgba { background-color: rgba(255, 27, 45, 0.40); }
+    .platform-playstation-rgba { background-color: rgba(3, 77, 162, 0.40); }
+    .platform-plex-rgba { background-color: rgba(229, 160, 13, 0.40); }
+    .platform-plexamp-rgba { background-color: rgba(229, 160, 13, 0.40); }
+    .platform-roku-rgba { background-color: rgba(109, 60, 151, 0.40); }
+    .platform-safari-rgba { background-color: rgba(0, 169, 236, 0.40); }
+    .platform-samsung-rgba { background-color: rgba(3, 78, 162, 0.40); }
+    .platform-synclounge-rgba { background-color: rgba(21, 25, 36, 0.40); }
+    .platform-tivo-rgba { background-color: rgba(0, 167, 225, 0.40); }
+    .platform-wiiu-rgba { background-color: rgba(3, 169, 244, 0.40); }
+    .platform-windows-rgba { background-color: rgba(47, 192, 245, 0.40); }
+    .platform-wp-rgba { background-color: rgba(104, 33, 122, 0.40); }
+    .platform-xbmc-rgba { background-color: rgba(59, 72, 114, 0.40); }
+    .platform-xbox-rgba { background-color: rgba(16, 124, 16, 0.40); }
+    </style>
+    `;
+    var homestats = array.homestats.data;
+    var libstats = array.libstats;
+    var options = array.options;
+    var buildLibraries = function(data){
+        var libs = data.data;
+        var movies = [];
+        var tv = [];
+        var audio = [];
+
+        libs.forEach(e => {
+            switch(e['section_type']) {
+                case 'movie':
+                    movies.push(e);
+                    break;
+                case 'show':
+                    tv.push(e);
+                    break;
+                case 'artist':
+                    audio.push(e);
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        movies = movies.sort((a, b) => (parseInt(a['count']) > parseInt(b['count'])) ? -1 : 1);
+        tv = tv.sort((a, b) => (parseInt(a['count']) > parseInt(b['count'])) ? -1 : 1);
+        audio = audio.sort((a, b) => (parseInt(a['count']) > parseInt(b['count'])) ? -1 : 1);
+
+        var buildCard = function(type, data) {
+            var card = `
+            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                <div class="card text-white mb-3 homepage-tautulli-card card-bg-colour">
+                    <div class="card-body">
+                        <div class="row" style="display: flex;">
+                            <div class="col-lg-4 col-md-4 col-sm-4 hidden-xs align-self-center">
+                                <img src="`+options['url']+`images/libraries/`+type;
+                                if(type == 'artist') {
+                                    card += `.png`;
+                                } else {
+                                    card += '.svg';
+                                }
+            card += `
+                                " class="lib-icon" alt="library icon">
+                            </div>
+                            <div class="col-lg-8 col-md-8 col-sm-8 col-xs-12">
+                                <ol class="pl-2">`;
+                                data.forEach(e => {
+                                    card += `<li class="w-100">
+                                                <p class="one-line d-inline">`+e['section_name']+`</p>`;
+                                                if(type == 'movie') {
+                                                    card += `<p class="mb-0 pull-right d-inline text-right text-warning">`+e['count']+`</p>`;
+                                                } else {
+                                                    card += `<p class="mb-0 pull-right d-inline text-right text-warning">`+e['count']+` / `+e['parent_count']+` / `+e['child_count']+`</p>`;
+                                                }
+                                    card += `
+                                            </li>`;
+                                });
+            card += `
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+            return card;
+        };
+        var card = buildCard('movie', movies);
+        card += buildCard('show', tv);
+        card += buildCard('artist', audio);
+        return card;
+    };
+    var buildStats = function(data, stat){
+        var card = '';
+        data.forEach(e => {
+            if(e['stat_id'] == stat) {
+                if(stat === 'top_platforms') {
+                    classes = ' platform-' + e['rows'][0]['platform_name'] + '-rgba';
+                } else if(stat === 'top_users') {
+                    classes = ' card-bg-colour';
+                } else {
+                    classes = '';
+                }
+                card += `
+                <div class=col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                    <div class="card text-white mb-3 homepage-tautulli-card`+classes+`">`;
+                        if(stat !== 'top_users' && stat !== 'top_platforms') {
+                            card += `
+                            <div class="bg-img-cont">
+                                <img class="bg-img" src="`+options['url']+`pms_image_proxy?img=`+e['rows'][0]['art']+`" alt="background art">
+                            </div>
+                            `;
+                        }
+                card += `
+                        <div class="card-body">
+                            <div class="row" style="display: flex;">
+                                <div class="col-lg-4 col-md-4 col-sm-4 hidden-xs align-self-center">`;
+                                if(stat == 'top_users') {
+                                    card += `<img src="`+e['rows'][0]['user_thumb']+`" class="poster avatar" alt="user avatar">`;
+                                } else if(stat == 'top_platforms') {
+                                    card += `<img src="`+options['url']+`images/platforms/`+e['rows'][0]['platform_name']+`.svg" class="poster" alt="platform icon">`;
+                                } else {
+                                    card += `<img src="`+options['url']+`pms_image_proxy?img=`+e['rows'][0]['thumb']+`" class="poster" alt="movie poster">`;
+                                }
+                card += `
+                                </div>
+                                <div class="col-lg-8 col-md-8 col-sm-8 col-xs-12">
+                                    <h4>`+e['stat_title']+`</h4>
+                                    <hr class="my-2">
+                                    <ol class="pl-2">`;
+                                    for(var i = 0; i < 5; i++) {
+                                        var item = e['rows'][i];
+                                        if(stat == 'top_users') {
+                                            card += `<li><p class="one-line">`+item['user']+`</p></li>`;
+                                        } else if(stat == 'top_platforms') {
+                                            card += `<li><p class="one-line">`+item['platform']+`</p></li>`;
+                                        } else {
+                                            card += `<li><p class="one-line">`+item['title']+`</p></li>`;
+                                        }
+                                    }
+                card += `
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            } else {
+                return '';
+            }
+        });
+        return card;
+    };
+    cards += '<div class="row">'
+    cards += (options['popularMovies']) ? buildStats(homestats, 'popular_movies') : '';
+    cards += (options['popularTV']) ? buildStats(homestats, 'popular_tv') : '';
+    cards += (options['topMovies']) ? buildStats(homestats, 'top_movies') : '';
+    cards += (options['topTV']) ? buildStats(homestats, 'top_tv') : '';
+    cards += (options['topUsers']) ? buildStats(homestats, 'top_users') : '';
+    cards += (options['topPlatforms']) ? buildStats(homestats, 'top_platforms') : '';
+    cards += '</div>';
+    cards += '<div class="row">'
+    cards += (options['libraries']) ? buildLibraries(libstats) : '';
+    cards += '</div>';
+    return cards;
+}
+function buildTautulli(array){
+    if(array === false){ return ''; }
+    return (array) ? `
+    <div id="allPihole">
+		<div class="el-element-overlay row">
+		    <div class="col-md-12">
+		        <h4 class="pull-left homepage-element-title"><span lang="en">Tautulli</span></h4>
+		        <hr class="hidden-xs ml-2">
+		    </div>
+			<div class="clearfix"></div>
+            <div class="piholeCards col-sm-12">
+                `+buildTautulliItem(array)+`
+			</div>
+		</div>
+	</div>
+    ` : '';
+}
+function homepageTautulli(timeout){
+    var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepageTautulliRefresh;
+    organizrAPI('POST','api/?v1/homepage/connect',{action:'getTautulli'}).success(function(data) {
+        try {
+            var response = JSON.parse(data);
+        }catch(e) {
+            console.log(e + ' error: ' + data);
+            orgErrorAlert('<h4>' + e + '</h4>' + formatDebug(data));
+            return false;
+        }
+        document.getElementById('homepageOrdertautulli').innerHTML = '';
+        if(response.data !== null){
+            buildTautulli(response.data)
+            $('#homepageOrdertautulli').html(buildTautulli(response.data));
+        }
+    }).fail(function(xhr) {
+        console.error("Organizr Function: API Connection Failed");
+    });
+    var timeoutTitle = 'Tautulli-Homepage';
+    if(typeof timeouts[timeoutTitle] !== 'undefined'){ clearTimeout(timeouts[timeoutTitle]); }
+    timeouts[timeoutTitle] = setTimeout(function(){ homepageTautulli(timeout); }, timeout);
+}
 // Thanks Swifty!
 function PopupCenter(url, title, w, h) {
     // Fixes dual-screen position                         Most browsers      Firefox
@@ -6428,13 +6894,14 @@ function humanFileSize(bytes, si) {
 //youtube search
 function youtubeSearch(searchQuery) {
 	return $.ajax({
-		url: "https://www.googleapis.com/youtube/v3/search?part=snippet&q="+searchQuery+"+official+trailer&part=snippet&maxResults=1&type=video&videoDuration=short&key=AIzaSyD-8SHutB60GCcSM8q_Fle38rJUV7ujd8k",
+		url: "api/?v1/youtube/search&q="+searchQuery,
 	});
 }
 function youtubeCheck(title,link){
 	youtubeSearch(title).success(function(data) {
+        var response = JSON.parse(data);
 		inlineLoad();
-		var id = data.items["0"].id.videoId;
+		var id = response.data.items["0"].id.videoId;
 		var div = `
 		<div id="player-`+link+`" data-plyr-provider="youtube" data-plyr-embed-id="`+id+`"></div>
 		<div class="clearfix"></div>
@@ -6590,6 +7057,28 @@ function organizrSpecialSettings(array){
 		$(htmlDOM).prependTo('.navbar-right');
 		$(searchBoxResults).appendTo($('.organizr-area'));
 	}
+}
+function checkLocalForwardStatus(array){
+    if(array.settings.login.enableLocalAddressForward == true && typeof array.settings.login.enableLocalAddressForward !== 'undefined'){
+        if(array.settings.login.wanDomain !== '' && array.settings.login.localAddress !== ''){
+            console.log('Local Login Enabled');
+            console.log('Local Login Testing...');
+            let remoteSite = array.settings.login.wanDomain;
+            let localSite = array.settings.login.localAddress;
+            try {
+                let currentURL = decodeURI(window.location.href)
+                let currentSite = window.location.host;
+                if(activeInfo.settings.user.local && currentSite.indexOf(remoteSite) !== -1 && currentURL.indexOf('override') === -1){
+                    console.log('Local Login Status: Local | Forwarding Now');
+                    window.location = localSite;
+                }
+            } catch(e) {
+                console.error(e);
+            }
+            console.log('Local Login Status: Not Local');
+
+        }
+    }
 }
 function forceSearch(term){
     $.magnificPopup.close();
@@ -7354,6 +7843,21 @@ function oAuthLoginNeededCheck() {
 function ipInfoSpan(ip){
     return '<span class="ipInfo mouse">'+ip+'</span>';
 }
+function checkToken(activate = false){
+    if(typeof activeInfo !== 'undefined'){
+        if(typeof activeInfo.settings.misc.uuid !== 'undefined'){
+            var token = getCookie('organizr_token_' + activeInfo.settings.misc.uuid);
+            if(token){
+                setTimeout(function(){ checkToken(true); }, 5000);
+            }else{
+                if(activate){
+                    local('set','message','Token Expired|You have been logged out|error');
+                    location.reload();
+                }
+            }
+        }
+    }
+}
 function launch(){
 	organizrConnect('api/?v1/launch_organizr').success(function (data) {
         try {
@@ -7401,6 +7905,7 @@ function launch(){
 		changeStyle(activeInfo.style);
 		changeTheme(activeInfo.theme);
 		setSSO();
+		checkToken();
 		switch (json.data.status.status) {
 			case "wizard":
 				buildWizard();
@@ -7421,6 +7926,7 @@ function launch(){
                     accountManager(json);
                     organizrSpecialSettings(json);
                     getPingList(json);
+                    checkLocalForwardStatus(json);
                 }
                 loadCustomJava(json.appearance);
                 if(getCookie('lockout')){

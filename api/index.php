@@ -1279,6 +1279,29 @@ switch ($function) {
 				break;
 		}
 		break;
+	case 'v1_token_validate':
+		switch ($method) {
+			case 'GET':
+				$token = $_GET['token'] ?? false;
+				break;
+			case 'POST':
+				$token = $_POST['token'] ?? false;
+				break;
+			default:
+				$result['status'] = 'error';
+				$result['statusText'] = 'The function requested is not defined for method: ' . $method;
+				break;
+		}
+		$token = validateToken($token);
+		if($token){
+			$result['status'] = 'success';
+			$result['statusText'] = 'success';
+			$result['data'] = $token;
+		}else{
+			$result['status'] = 'error';
+			$result['statusText'] = 'Token not validated or empty';
+		}
+		break;
 	case 'v1_update_db_manual':
 		switch ($method) {
 			case 'GET':
@@ -1369,6 +1392,20 @@ switch ($function) {
 				$result['status'] = 'success';
 				$result['statusText'] = 'success';
 				$result['data'] = $$customPage;
+				break;
+			default:
+				$result['status'] = 'error';
+				$result['statusText'] = 'The function requested is not defined for method: ' . $method;
+				break;
+		}
+		break;
+	case 'v1_youtube_search':
+		switch ($method) {
+			case 'GET':
+				$query = isset($_GET['q']) ? $_GET['q'] : false;
+				$result['status'] = isset($_GET['q']) ? 'success' : 'error';
+				$result['statusText'] = isset($_GET['q']) ? 'success' : 'missing query';
+				$result['data'] = youtubeSearch($query);
 				break;
 			default:
 				$result['status'] = 'error';

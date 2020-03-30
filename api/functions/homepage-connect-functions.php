@@ -52,13 +52,18 @@ function homepageConnect($array)
 			return getCalendar();
 			break;
 		case 'getRequests':
-			return getOmbiRequests($GLOBALS['ombiLimit']);
+			return getOmbiRequests('both', $GLOBALS['ombiLimit']);
 			break;
 		case 'getHealthChecks':
 			return (qualifyRequest($GLOBALS['homepageHealthChecksAuth'])) ? getHealthChecks($array['data']['tags']) : false;
 			break;
 		case 'getUnifi':
 			return unifiConnect();
+			break;
+		case 'getTautulli':
+			return getTautulli();
+		case 'getPihole':
+			return getPihole();
 			break;
 		default:
 			# code...
@@ -108,6 +113,31 @@ function getHealthChecks($tags = null)
 			return $a['status'] <=> $b['status'];
 		});
 		$api['content']['checks'] = isset($api['content']['checks']) ? $api['content']['checks'] : false;
+		return $api;
+	}
+	return false;
+}
+
+function getPihole()
+{
+	if ($GLOBALS['homepagePiholeEnabled'] && !empty($GLOBALS['piholeURL'])) {
+		$api = array();
+		$urls = explode(',', $GLOBALS['piholeURL']);
+		foreach($urls as $url) {
+			$url = $url . '/api.php?';
+			try {
+				$response = Requests::get($url, [], []);
+				if ($response->success) {
+					$piholeResults = json_decode($response->body, true);
+					$ip = qualifyURL($url, true)['host'];
+					$api['data'][$ip] = $piholeResults;
+				}
+			} catch (Requests_Exception $e) {
+				writeLog('error', 'Pi-hole Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+			};
+		}
+		$api['options']['combine'] = $GLOBALS['homepagePiholeCombine'];
+		$api = isset($api) ? $api : false;
 		return $api;
 	}
 	return false;
@@ -373,6 +403,20 @@ function resolvePlexItem($item)
 	$cacheDirectoryWeb = 'plugins/images/cache/';
 	// Types
 	switch ($item['type']) {
+		case 'show':
+			$plexItem['type'] = 'tv';
+			$plexItem['title'] = (string)$item['title'];
+			$plexItem['secondaryTitle'] = (string)$item['year'];
+			$plexItem['summary'] = (string)$item['summary'];
+			$plexItem['ratingKey'] = (string)$item['ratingKey'];
+			$plexItem['thumb'] = (string)$item['thumb'];
+			$plexItem['key'] = (string)$item['ratingKey'] . "-list";
+			$plexItem['nowPlayingThumb'] = (string)$item['art'];
+			$plexItem['nowPlayingKey'] = (string)$item['ratingKey'] . "-np";
+			$plexItem['nowPlayingTitle'] = (string)$item['title'];
+			$plexItem['nowPlayingBottom'] = (string)$item['year'];
+			$plexItem['metadataKey'] = (string)$item['ratingKey'];
+			break;
 		case 'season':
 			$plexItem['type'] = 'tv';
 			$plexItem['title'] = (string)$item['parentTitle'];
@@ -442,6 +486,7 @@ function resolvePlexItem($item)
 			$plexItem['nowPlayingBottom'] = (string)$item['year'];
 			$plexItem['metadataKey'] = (string)$item['ratingKey'];
 	}
+	$plexItem['originalType'] = $item['type'];
 	$plexItem['uid'] = (string)$item['ratingKey'];
 	$plexItem['elapsed'] = isset($item['viewOffset']) && $item['viewOffset'] !== '0' ? (int)$item['viewOffset'] : null;
 	$plexItem['duration'] = isset($item['duration']) ? (int)$item['duration'] : (int)$item->Media['duration'];
@@ -748,7 +793,7 @@ function jdownloaderConnect()
         $url = qualifyURL($GLOBALS['jdownloaderURL']);
 
         try {
-            $options = (localURL($url)) ? array('verify' => false) : array();
+            $options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
             $response = Requests::get($url, array(), $options);
             if ($response->success) {
                 $temp = json_decode($response->body, true);
@@ -820,13 +865,13 @@ function nzbgetConnect()
 {
 	if ($GLOBALS['homepageNzbgetEnabled'] && !empty($GLOBALS['nzbgetURL']) && qualifyRequest($GLOBALS['homepageNzbgetAuth'])) {
 		$url = qualifyURL($GLOBALS['nzbgetURL']);
-		if (!empty($GLOBALS['nzbgetUsername']) && !empty($GLOBALS['nzbgetPassword'])) {
-			$url = $url . '/' . $GLOBALS['nzbgetUsername'] . ':' . decrypt($GLOBALS['nzbgetPassword']) . '/jsonrpc/listgroups';
-		} else {
-			$url = $url . '/jsonrpc/listgroups';
-		}
+		$url = $url . '/jsonrpc/listgroups';
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
+			if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+				$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
+				$options = array_merge($options, $credentials);
+			}
 			$response = Requests::get($url, array(), $options);
 			if ($response->success) {
 				$api['content']['queueItems'] = json_decode($response->body, true);
@@ -835,13 +880,13 @@ function nzbgetConnect()
 			writeLog('error', 'NZBGet Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 		};
 		$url = qualifyURL($GLOBALS['nzbgetURL']);
-		if (!empty($GLOBALS['nzbgetUsername']) && !empty($GLOBALS['nzbgetPassword'])) {
-			$url = $url . '/' . $GLOBALS['nzbgetUsername'] . ':' . decrypt($GLOBALS['nzbgetPassword']) . '/jsonrpc/history';
-		} else {
-			$url = $url . '/jsonrpc/history';
-		}
+		$url = $url . '/jsonrpc/history';
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
+			if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+				$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
+				$options = array_merge($options, $credentials);
+			}
 			$response = Requests::get($url, array(), $options);
 			if ($response->success) {
 				$api['content']['historyItems'] = json_decode($response->body, true);
@@ -929,15 +974,19 @@ function rTorrentStatus($completed, $state, $status)
 
 function rTorrentConnect()
 {
-	if ($GLOBALS['homepagerTorrentEnabled'] && !empty($GLOBALS['rTorrentURL']) && qualifyRequest($GLOBALS['homepagerTorrentAuth'])) {
+	if ($GLOBALS['homepagerTorrentEnabled'] && (!empty($GLOBALS['rTorrentURL']) || !empty($GLOBALS['rTorrentURLOverride'])) && qualifyRequest($GLOBALS['homepagerTorrentAuth'])) {
 		try {
 			$torrents = array();
 			$digest = (empty($GLOBALS['rTorrentURLOverride'])) ? qualifyURL($GLOBALS['rTorrentURL'], true) : qualifyURL(checkOverrideURL($GLOBALS['rTorrentURL'], $GLOBALS['rTorrentURLOverride']), true);
-			$passwordInclude = ($GLOBALS['rTorrentUsername'] != '' && $GLOBALS['rTorrentPassword'] != '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
+			$passwordInclude = ($GLOBALS['rTorrentUsername'] !== '' && $GLOBALS['rTorrentPassword'] !== '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
 			$extraPath = (strpos($GLOBALS['rTorrentURL'], '.php') !== false) ? '' : '/RPC2';
 			$extraPath = (empty($GLOBALS['rTorrentURLOverride'])) ? $extraPath : '';
 			$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
-			$options = (localURL($url)) ? array('verify' => false) : array();
+			$options = (localURL($url, $GLOBALS['rTorrentDisableCertCheck'])) ? array('verify' => false) : array();
+			if($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== ''){
+				$credentials = array('auth' => new Requests_Auth_Digest(array($GLOBALS['rTorrentUsername'], decrypt($GLOBALS['rTorrentPassword']))));
+				$options = array_merge($options, $credentials);
+			}
 			$data = xmlrpc_encode_request("d.multicall2", array(
 				"",
 				"main",
@@ -1514,7 +1563,7 @@ function getSonarrCalendar($array, $number)
 				$fanart = $image['url'];
 			}
 		}
-		if ($fanart !== "/plugins/images/cache/no-np.png") {
+		if ($fanart !== "/plugins/images/cache/no-np.png" || (strpos($fanart, '://') === false)) {
 			$cacheDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR;
 			$imageURL = $fanart;
 			$cacheFile = $cacheDirectory . $seriesID . '.jpg';
@@ -1667,17 +1716,22 @@ function getRadarrCalendar($array, $number, $url)
 			$banner = "/plugins/images/cache/no-np.png";
 			foreach ($child['images'] as $image) {
 				if ($image['coverType'] == "banner" || $image['coverType'] == "fanart") {
-					$imageUrl = $image['url'];
-					$urlParts = explode("/", $url);
-					$imageParts = explode("/", $image['url']);
-					if ($imageParts[1] == end($urlParts)) {
-						unset($imageParts[1]);
-						$imageUrl = implode("/", $imageParts);
+					if (strpos($image['url'], '://') === false) {
+						$imageUrl = $image['url'];
+						$urlParts = explode("/", $url);
+						$imageParts = explode("/", $image['url']);
+						if ($imageParts[1] == end($urlParts)) {
+							unset($imageParts[1]);
+							$imageUrl = implode("/", $imageParts);
+						}
+						$banner = $url . $imageUrl . '?apikey=' . $GLOBALS['radarrToken'];
+					}else{
+						$banner = $image['url'];
 					}
-					$banner = $url . $imageUrl . '?apikey=' . $GLOBALS['radarrToken'];
+					
 				}
 			}
-			if ($banner !== "/plugins/images/cache/no-np.png") {
+			if ($banner !== "/plugins/images/cache/no-np.png" || (strpos($banner, 'apikey') !== false)) {
 				$cacheDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR;
 				$imageURL = $banner;
 				$cacheFile = $cacheDirectory . $movieID . '.jpg';
@@ -2374,6 +2428,69 @@ function unifiConnect()
 	return false;
 }
 
+function getTautulli()
+{
+	if ($GLOBALS['homepageTautulliEnabled'] && !empty($GLOBALS['tautulliURL']) && !empty($GLOBALS['tautulliApikey']) && qualifyRequest($GLOBALS['homepageTautulliAuth'])) {
+		$api = [];
+		$url = $GLOBALS['tautulliURL'] . '/api/v2?apikey=' . $GLOBALS['tautulliApikey'];
+		try {
+			$homestatsUrl = $url . '&cmd=get_home_stats';
+			$homestats = Requests::get($homestatsUrl, [], []);
+			if ($homestats->success) {
+				$homestats = json_decode($homestats->body, true);
+				$api['homestats'] = $homestats['response'];
+			}
+			$libstatsUrl = $url . '&cmd=get_libraries';
+			$libstats = Requests::get($libstatsUrl, [], []);
+			if ($libstats->success) {
+				$libstats = json_decode($libstats->body, true);
+				$api['libstats'] = $libstats['response'];
+			}
+			$api['options'] = [
+				'url' => $GLOBALS['tautulliURL'],
+				'libraries' => $GLOBALS['tautulliLibraries'],
+				'topMovies' => $GLOBALS['tautulliTopMovies'],
+				'topTV' => $GLOBALS['tautulliTopTV'],
+				'topUsers' => $GLOBALS['tautulliTopUsers'],
+				'topPlatforms' => $GLOBALS['tautulliTopPlatforms'],
+				'popularMovies' => $GLOBALS['tautulliPopularMovies'],
+				'popularTV' => $GLOBALS['tautulliPopularTV'],
+			];
+
+			$ids = []; // Array of stat_ids to remove from the returned array
+			if(!qualifyRequest($GLOBALS['homepageTautulliLibraryAuth'])) {
+				$api['options']['libraries'] = false;
+				unset($api['libstats']);
+			}
+			if(!qualifyRequest($GLOBALS['homepageTautulliViewsAuth'])) {
+				$api['options']['topMovies'] = false;
+				$api['options']['topTV'] = false;
+				$api['options']['popularMovies'] = false;
+				$api['options']['popularTV'] = false;
+				$ids = array_merge([ 'top_movies', 'popular_movies', 'popular_tv', 'top_tv' ], $ids);
+				$api['homestats']['data'] = array_values($api['homestats']['data']);
+			}
+			if(!qualifyRequest($GLOBALS['homepageTautulliMiscAuth'])) {
+				$api['options']['topUsers'] = false;
+				$api['options']['topPlatforms'] = false;
+				$ids = array_merge([ 'top_platforms', 'top_users' ], $ids);
+				$api['homestats']['data'] = array_values($api['homestats']['data']);
+			}
+			$ids = array_merge([ 'top_music', 'popular_music', 'last_watched', 'most_concurrent' ], $ids);
+			foreach($ids as $id) {
+				$key = array_search($id, array_column($api['homestats']['data'], 'stat_id'));
+				unset($api['homestats']['data'][$key]);
+				$api['homestats']['data'] = array_values($api['homestats']['data']);
+			}
+		} catch (Requests_Exception $e) {
+			writeLog('error', 'Tautulli Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api = isset($api) ? $api : false;
+		return $api;
+	}
+	return false;
+}
+
 function testAPIConnection($array)
 {
 	switch ($array['data']['action']) {
@@ -2567,7 +2684,7 @@ function testAPIConnection($array)
             if (!empty($GLOBALS['jdownloaderURL'])) {
                 $url = qualifyURL($GLOBALS['jdownloaderURL']);
                 try {
-                    $options = (localURL($url)) ? array('verify' => false) : array();
+	                $options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
                     $response = Requests::get($url, array(), $options);
                     if ($response->success) {
                         return true;
@@ -2599,13 +2716,13 @@ function testAPIConnection($array)
 		case 'nzbget':
 			if (!empty($GLOBALS['nzbgetURL'])) {
 				$url = qualifyURL($GLOBALS['nzbgetURL']);
-				if (!empty($GLOBALS['nzbgetUsername']) && !empty($GLOBALS['nzbgetPassword'])) {
-					$url = $url . '/' . $GLOBALS['nzbgetUsername'] . ':' . decrypt($GLOBALS['nzbgetPassword']) . '/jsonrpc/listgroups';
-				} else {
-					$url = $url . '/jsonrpc/listgroups';
-				}
+				$url = $url . '/jsonrpc/listgroups';
 				try {
 					$options = (localURL($url)) ? array('verify' => false) : array();
+					if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+						$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
+						$options = array_merge($options, $credentials);
+					}
 					$response = Requests::get($url, array(), $options);
 					if ($response->success) {
 						return true;
@@ -2631,14 +2748,18 @@ function testAPIConnection($array)
 			}
 			break;
 		case 'rtorrent':
-			if (!empty($GLOBALS['rTorrentURL'])) {
+			if (!empty($GLOBALS['rTorrentURL']) || !empty($GLOBALS['rTorrentURLOverride'])) {
 				try {
 					$digest = (empty($GLOBALS['rTorrentURLOverride'])) ? qualifyURL($GLOBALS['rTorrentURL'], true) : qualifyURL(checkOverrideURL($GLOBALS['rTorrentURL'], $GLOBALS['rTorrentURLOverride']), true);
-					$passwordInclude = ($GLOBALS['rTorrentUsername'] != '' && $GLOBALS['rTorrentPassword'] != '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
+					$passwordInclude = ($GLOBALS['rTorrentUsername'] !== '' && $GLOBALS['rTorrentPassword'] !== '') ? $GLOBALS['rTorrentUsername'] . ':' . decrypt($GLOBALS['rTorrentPassword']) . "@" : '';
 					$extraPath = (strpos($GLOBALS['rTorrentURL'], '.php') !== false) ? '' : '/RPC2';
 					$extraPath = (empty($GLOBALS['rTorrentURLOverride'])) ? $extraPath : '';
 					$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
-					$options = (localURL($url)) ? array('verify' => false) : array();
+					$options = (localURL($url, $GLOBALS['rTorrentDisableCertCheck'])) ? array('verify' => false) : array();
+					if($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== ''){
+						$credentials = array('auth' => new Requests_Auth_Digest(array($GLOBALS['rTorrentUsername'], decrypt($GLOBALS['rTorrentPassword']))));
+						$options = array_merge($options, $credentials);
+					}
 					$data = xmlrpc_encode_request("system.listMethods", null);
 					$response = Requests::post($url, array(), $data, $options);
 					if ($response->success) {

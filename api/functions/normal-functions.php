@@ -101,13 +101,13 @@ function coookie($type, $name, $value = '', $days = -1, $http = true)
 			. (empty($days) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() + (86400 * $days)) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $Domain)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 		header('Set-Cookie: ' . rawurlencode($name) . '=' . rawurlencode($value)
 			. (empty($days) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() + (86400 * $days)) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $DomainTest)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 	} elseif ($type == 'delete') {
 		unset($_COOKIE[$name]);
@@ -115,13 +115,13 @@ function coookie($type, $name, $value = '', $days = -1, $http = true)
 			. (empty($days) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() - 3600) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $Domain)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 		header('Set-Cookie: ' . rawurlencode($name) . '=' . rawurlencode($value)
 			. (empty($days) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() - 3600) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $DomainTest)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 	}
 }
@@ -150,13 +150,13 @@ function coookieSeconds($type, $name, $value = '', $ms, $http = true)
 			. (empty($ms) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() + ($ms / 1000)) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $Domain)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 		header('Set-Cookie: ' . rawurlencode($name) . '=' . rawurlencode($value)
 			. (empty($ms) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() + ($ms / 1000)) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $DomainTest)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 	} elseif ($type == 'delete') {
 		unset($_COOKIE[$name]);
@@ -164,13 +164,13 @@ function coookieSeconds($type, $name, $value = '', $ms, $http = true)
 			. (empty($ms) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() - 3600) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $Domain)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 		header('Set-Cookie: ' . rawurlencode($name) . '=' . rawurlencode($value)
 			. (empty($ms) ? '' : '; expires=' . gmdate('D, d-M-Y H:i:s', time() - 3600) . ' GMT')
 			. (empty($Path) ? '' : '; path=' . $Path)
 			. (empty($Domain) ? '' : '; domain=' . $DomainTest)
-			. (!$Secure ? '' : '; secure')
+			. (!$Secure ? '' : '; SameSite=None; Secure')
 			. (!$HTTPOnly ? '' : '; HttpOnly'), false);
 	}
 }
@@ -311,15 +311,25 @@ function getCert()
 {
 	$url = 'http://curl.haxx.se/ca/cacert.pem';
 	$file = __DIR__ . DIRECTORY_SEPARATOR . 'cert' . DIRECTORY_SEPARATOR . 'cacert.pem';
+	$file2 = __DIR__ . DIRECTORY_SEPARATOR . 'cert' . DIRECTORY_SEPARATOR . 'cacert-initial.pem';
+	$useCert = (file_exists($file)) ? $file : $file2;
 	if($GLOBALS['selfSignedCert'] !== ''){
 		if(file_exists($GLOBALS['selfSignedCert'])){
 			return $GLOBALS['selfSignedCert'];
 		}
 	}
+	$context = stream_context_create(
+		array(
+			'ssl'=> array(
+				'verify_peer' => true,
+				'cafile' => $useCert
+			)
+		)
+	);
 	if (!file_exists($file)) {
-		file_put_contents($file, fopen($url, 'r'));
+		file_put_contents($file, fopen($url, 'r', false, $context));
 	} elseif (file_exists($file) && time() - 2592000 > filemtime($file)) {
-		file_put_contents($file, fopen($url, 'r'));
+		file_put_contents($file, fopen($url, 'r', false, $context));
 	}
 	return $file;
 }
@@ -408,8 +418,11 @@ function download($url, $path)
 	return (filesize($path) > 0) ? true : false;
 }
 
-function localURL($url)
+function localURL($url, $force = false)
 {
+	if($force){
+		return true;
+	}
 	if (strpos($url, 'https') !== false) {
 		preg_match("/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/", $url, $result);
 		$result = (!empty($result) ? true : false);
