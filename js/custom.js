@@ -338,6 +338,13 @@ function doneTypingMediaSearch () {
 }
 $(document).on("click", ".login-button", function(e) {
     e.preventDefault;
+    var oAuthEntered = $('#oAuth-Input').val();
+    var usernameEntered = $('#login-username-Input').val();
+    if(oAuthEntered == '' && usernameEntered == ''){
+        message('Login Error', ' You need to enter a Username', activeInfo.settings.notifications.position, '#FFF', 'warning', '10000');
+        $('#login-username-Input').focus();
+        return false;
+    }
     loginAttempts = loginAttempts + 1;
     $('#login-attempts').val(loginAttempts);
     var check = (local('g','loggingIn'));
@@ -1933,9 +1940,6 @@ $(document).on("keyup", "#authBackendHostPrefix-input, #authBackendHostSuffix-in
 });
 
 // homepage healthchecks
-$(document).on('click', ".good-health-checks", function(){
-    homepageHealthChecks();
-});
 $(document).on('click', ".showMoreHealth", function(){
    var id = $(this).attr('data-id');
     $('.showMoreHealthDiv-'+id).toggleClass('d-none');
@@ -1979,8 +1983,27 @@ $(document).on('click', ".ipInfo", function(){
         });
     });
 });
-
+// set active for group list
 $(document).on('click', '.allGroupsList', function() {
     console.log($(this));
     $(this).toggleClass('active');
+});
+// Control init of custom netdata JSON editor
+$(document).on('click', 'li a[aria-controls="Custom data"]', function() {
+    var resizeEditor = function(jsonEditor) {
+        const aceEditor = jsonEditor;
+        const newHeight = aceEditor.getSession().getScreenLength() * (aceEditor.renderer.lineHeight + aceEditor.renderer.scrollBar.getWidth());
+        aceEditor.container.style.height = newHeight + 'px';
+        aceEditor.resize();
+    }
+
+    jsonEditor = ace.edit("netdataCustomTextAce");
+    var JsonMode = ace.require("ace/mode/javascript").Mode;
+    jsonEditor.session.setMode(new JsonMode());
+    jsonEditor.setTheme("ace/theme/idle_fingers");
+    jsonEditor.setShowPrintMargin(false);
+    jsonEditor.session.on('change', function(delta) {
+        $('#netdataCustomText').val(jsonEditor.getValue());
+        $('#customize-appearance-form-save').removeClass('hidden');
+    });
 });

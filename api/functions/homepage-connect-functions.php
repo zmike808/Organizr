@@ -65,6 +65,18 @@ function homepageConnect($array)
 		case 'getPihole':
 			return getPihole();
 			break;
+		case 'getMonitorr':
+			return getMonitorr();
+			break;
+		case 'getWeatherAndAir':
+			return getWeatherAndAir();
+			break;
+		case 'getSpeedtest':
+			return getSpeedtest();
+			break;
+		case 'getNetdata':
+			return getNetdata();
+			break;
 		default:
 			# code...
 			break;
@@ -87,6 +99,55 @@ function healthChecksTags($tags)
 			return $return . $tags;
 		}
 	}
+}
+
+function getWeatherAndAir()
+{
+	if ($GLOBALS['homepageWeatherAndAirEnabled'] && !empty($GLOBALS['homepageWeatherAndAirLatitude']) && !empty($GLOBALS['homepageWeatherAndAirLongitude']) && qualifyRequest($GLOBALS['homepageWeatherAndAirAuth'])) {
+		$api['content'] = array(
+			'weather' => false,
+			'air' => false,
+			'pollen' => false
+		);
+		$apiURL = qualifyURL('https://api.breezometer.com/');
+		$info = '&lat=' . $GLOBALS['homepageWeatherAndAirLatitude'] . '&lon=' . $GLOBALS['homepageWeatherAndAirLongitude'] . '&units=' . $GLOBALS['homepageWeatherAndAirUnits'] . '&key=b7401295888443538a7ebe04719c8394';
+		try {
+			$headers = array();
+			$options = array();
+			if ($GLOBALS['homepageWeatherAndAirWeatherEnabled']) {
+				$endpoint = '/weather/v1/forecast/hourly?hours=120&metadata=true';
+				$response = Requests::get($apiURL . $endpoint . $info, $headers, $options);
+				if ($response->success) {
+					$apiData = json_decode($response->body, true);
+					$api['content']['weather'] = ($apiData['error'] === null) ? $apiData : false;
+					unset($apiData);
+				}
+			}
+			if ($GLOBALS['homepageWeatherAndAirAirQualityEnabled']) {
+				$endpoint = '/air-quality/v2/current-conditions?features=breezometer_aqi,local_aqi,health_recommendations,sources_and_effects,dominant_pollutant_concentrations,pollutants_concentrations,pollutants_aqi_information&metadata=true';
+				$response = Requests::get($apiURL . $endpoint . $info, $headers, $options);
+				if ($response->success) {
+					$apiData = json_decode($response->body, true);
+					$api['content']['air'] = ($apiData['error'] === null) ? $apiData : false;
+					unset($apiData);
+				}
+			}
+			if ($GLOBALS['homepageWeatherAndAirPollenEnabled']) {
+				$endpoint = '/pollen/v2/forecast/daily/?features=plants_information,types_information&days=1&metadata=true';
+				$response = Requests::get($apiURL . $endpoint . $info, $headers, $options);
+				if ($response->success) {
+					$apiData = json_decode($response->body, true);
+					$api['content']['pollen'] = ($apiData['error'] === null) ? $apiData : false;
+					unset($apiData);
+				}
+			}
+		} catch (Requests_Exception $e) {
+			writeLog('error', 'Weather And Air Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api['content'] = isset($api['content']) ? $api['content'] : false;
+		return $api;
+	}
+	return false;
 }
 
 function getHealthChecks($tags = null)
@@ -120,10 +181,10 @@ function getHealthChecks($tags = null)
 
 function getPihole()
 {
-	if ($GLOBALS['homepagePiholeEnabled'] && !empty($GLOBALS['piholeURL'])) {
+	if ($GLOBALS['homepagePiholeEnabled'] && !empty($GLOBALS['piholeURL']) && qualifyRequest($GLOBALS['homepagePiholeAuth'])) {
 		$api = array();
 		$urls = explode(',', $GLOBALS['piholeURL']);
-		foreach($urls as $url) {
+		foreach ($urls as $url) {
 			$url = $url . '/api.php?';
 			try {
 				$response = Requests::get($url, [], []);
@@ -137,6 +198,7 @@ function getPihole()
 			};
 		}
 		$api['options']['combine'] = $GLOBALS['homepagePiholeCombine'];
+		$api['options']['title'] = $GLOBALS['piholeHeaderToggle'];
 		$api = isset($api) ? $api : false;
 		return $api;
 	}
@@ -281,8 +343,8 @@ function resolveEmbyItem($itemDetails)
 	$embyItem['user'] = ($GLOBALS['homepageShowStreamNames'] && qualifyRequest($GLOBALS['homepageShowStreamNamesAuth'])) ? @(string)$itemDetails['UserName'] : "";
 	$embyItem['userThumb'] = '';
 	$embyItem['userAddress'] = (isset($itemDetails['RemoteEndPoint']) ? $itemDetails['RemoteEndPoint'] : "x.x.x.x");
-	$embyURL = (strpos($GLOBALS['embyURL'], 'jellyfin') !== false) ? $GLOBALS['embyURL'] . '/web/index.html#!/itemdetails.html?id=' : 'https://app.emby.media/#!/itemdetails.html?id=';
-	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/itemdetails.html?id=" . $embyItem['uid'] : $embyURL . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
+	$embyURL = (strpos($GLOBALS['embyURL'], 'jellyfin') !== false) ? $GLOBALS['embyURL'] . '/web/index.html#!/itemdetails.html?id=' : 'https://app.emby.media/#!/item/item.html?id=';
+	$embyItem['address'] = $GLOBALS['embyTabURL'] ? rtrim($GLOBALS['embyTabURL'], '/') . "/web/#!/item/item.html?id=" . $embyItem['uid'] : $embyURL . $embyItem['uid'] . "&serverId=" . $embyItem['id'];
 	$embyItem['nowPlayingOriginalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['nowPlayingImageType'] . '&img=' . $embyItem['nowPlayingThumb'] . '&height=' . $nowPlayingHeight . '&width=' . $nowPlayingWidth . '&key=' . $embyItem['nowPlayingKey'] . '$' . randString();
 	$embyItem['originalImage'] = 'api/?v1/image&source=emby&type=' . $embyItem['imageType'] . '&img=' . $embyItem['thumb'] . '&height=' . $height . '&width=' . $width . '&key=' . $embyItem['key'] . '$' . randString();
 	$embyItem['openTab'] = $GLOBALS['embyTabURL'] && $GLOBALS['embyTabName'] ? true : false;
@@ -600,11 +662,11 @@ function plexConnect($action, $key = null)
 				$resolve = false;
 				break;
 			case 'recent':
-					//$url = $url . "/library/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&limit=" . $GLOBALS['homepageRecentLimit'];
-					$urls['movie'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=1";
-					$urls['tv'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=2";
-					$urls['music'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=8";
-					$multipleURL = true;
+				//$url = $url . "/library/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&limit=" . $GLOBALS['homepageRecentLimit'];
+				$urls['movie'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=1";
+				$urls['tv'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=2";
+				$urls['music'] = $url . "/hubs/home/recentlyAdded?X-Plex-Token=" . $GLOBALS['plexToken'] . "&X-Plex-Container-Start=0&X-Plex-Container-Size=" . $GLOBALS['homepageRecentLimit'] . "&type=8";
+				$multipleURL = true;
 				break;
 			case 'metadata':
 				$url = $url . "/library/metadata/" . $key . "?X-Plex-Token=" . $GLOBALS['plexToken'];
@@ -765,18 +827,17 @@ function embyConnect($action, $key = 'Latest', $skip = false)
 			if ($response->success) {
 				$items = array();
 				$emby = json_decode($response->body, true);
-				if($key !== 'Latest'){
+				if ($key !== 'Latest') {
 					if (isset($emby['NowPlayingItem']) || isset($emby['Name'])) {
 						$items[] = resolveEmbyItem($emby);
 					}
-				}else{
+				} else {
 					foreach ($emby as $child) {
 						if (isset($child['NowPlayingItem']) || isset($child['Name'])) {
 							$items[] = resolveEmbyItem($child);
 						}
 					}
 				}
-				
 				$api['content'] = array_filter($items);
 				return $api;
 			}
@@ -789,45 +850,43 @@ function embyConnect($action, $key = 'Latest', $skip = false)
 
 function jdownloaderConnect()
 {
-    if ($GLOBALS['homepageJdownloaderEnabled'] && !empty($GLOBALS['jdownloaderURL']) && qualifyRequest($GLOBALS['homepageJdownloaderAuth'])) {
-        $url = qualifyURL($GLOBALS['jdownloaderURL']);
-
-        try {
-            $options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
-            $response = Requests::get($url, array(), $options);
-            if ($response->success) {
-                $temp = json_decode($response->body, true);
-                $packages = $temp['packages'];
-                if ($packages['downloader']) {
-                    $api['content']['queueItems'] = $packages['downloader'];
-                }else{
-                    $api['content']['queueItems'] = [];
-                }
-                if ($packages['linkgrabber_decrypted']) {
-                    $api['content']['grabberItems'] = $packages['linkgrabber_decrypted'];
-                }else{
-                    $api['content']['grabberItems'] = [];
-                }
-                if ($packages['linkgrabber_failed']) {
-                    $api['content']['encryptedItems'] = $packages['linkgrabber_failed'];
-                }else{
-                    $api['content']['encryptedItems'] = [];
-                }
-                if ($packages['linkgrabber_offline']) {
-                    $api['content']['offlineItems'] = $packages['linkgrabber_offline'];
-                }else{
-                    $api['content']['offlineItems'] = [];
-                }
-
-                $api['content']['$status'] = array($temp['downloader_state'], $temp['grabber_collecting'], $temp['update_ready']);
-            }
-        } catch (Requests_Exception $e) {
-            writeLog('error', 'JDownloader Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
-        };
-        $api['content'] = isset($api['content']) ? $api['content'] : false;
-        return $api;
-    }
-    return false;
+	if ($GLOBALS['homepageJdownloaderEnabled'] && !empty($GLOBALS['jdownloaderURL']) && qualifyRequest($GLOBALS['homepageJdownloaderAuth'])) {
+		$url = qualifyURL($GLOBALS['jdownloaderURL']);
+		try {
+			$options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
+			$response = Requests::get($url, array(), $options);
+			if ($response->success) {
+				$temp = json_decode($response->body, true);
+				$packages = $temp['packages'];
+				if ($packages['downloader']) {
+					$api['content']['queueItems'] = $packages['downloader'];
+				} else {
+					$api['content']['queueItems'] = [];
+				}
+				if ($packages['linkgrabber_decrypted']) {
+					$api['content']['grabberItems'] = $packages['linkgrabber_decrypted'];
+				} else {
+					$api['content']['grabberItems'] = [];
+				}
+				if ($packages['linkgrabber_failed']) {
+					$api['content']['encryptedItems'] = $packages['linkgrabber_failed'];
+				} else {
+					$api['content']['encryptedItems'] = [];
+				}
+				if ($packages['linkgrabber_offline']) {
+					$api['content']['offlineItems'] = $packages['linkgrabber_offline'];
+				} else {
+					$api['content']['offlineItems'] = [];
+				}
+				$api['content']['$status'] = array($temp['downloader_state'], $temp['grabber_collecting'], $temp['update_ready']);
+			}
+		} catch (Requests_Exception $e) {
+			writeLog('error', 'JDownloader Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api['content'] = isset($api['content']) ? $api['content'] : false;
+		return $api;
+	}
+	return false;
 }
 
 function sabnzbdConnect()
@@ -868,7 +927,7 @@ function nzbgetConnect()
 		$url = $url . '/jsonrpc/listgroups';
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
-			if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+			if ($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== '') {
 				$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
 				$options = array_merge($options, $credentials);
 			}
@@ -883,7 +942,7 @@ function nzbgetConnect()
 		$url = $url . '/jsonrpc/history';
 		try {
 			$options = (localURL($url)) ? array('verify' => false) : array();
-			if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+			if ($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== '') {
 				$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
 				$options = array_merge($options, $credentials);
 			}
@@ -983,7 +1042,7 @@ function rTorrentConnect()
 			$extraPath = (empty($GLOBALS['rTorrentURLOverride'])) ? $extraPath : '';
 			$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
 			$options = (localURL($url, $GLOBALS['rTorrentDisableCertCheck'])) ? array('verify' => false) : array();
-			if($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== ''){
+			if ($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== '') {
 				$credentials = array('auth' => new Requests_Auth_Digest(array($GLOBALS['rTorrentUsername'], decrypt($GLOBALS['rTorrentPassword']))));
 				$options = array_merge($options, $credentials);
 			}
@@ -1410,6 +1469,7 @@ function getCalendar()
 							$calendarStartDiff = date_diff($startDt, $newestDay);
 							$calendarEndDiff = date_diff($startDt, $oldestDay);
 							if ($originalTimeZone && $originalTimeZone !== 'UTC' && (strpos($start, 'Z') == false)) {
+								$originalTimeZone = calendarStandardizeTimezone($originalTimeZone);
 								$dateTimeOriginalTZ = new DateTimeZone($originalTimeZone);
 								$dateTimeOriginal = new DateTime('now', $dateTimeOriginalTZ);
 								$dateTimeUTCTZ = new DateTimeZone(date_default_timezone_get());
@@ -1473,6 +1533,47 @@ function calendarDaysCheck($entryStart, $entryEnd)
 	return $success;
 }
 
+function calendarStandardizeTimezone($timezone)
+{
+    switch ($timezone) {
+        case('CST'):
+        case('Central Time'):
+        case('Central Standard Time'):
+            $timezone = 'America/Chicago';
+            break;
+        case('CET'):
+        case('Central European Time'):
+            $timezone = 'Europe/Berlin';
+            break;
+        case('EST'):
+        case('Eastern Time'):
+        case('Eastern Standard Time'):
+            $timezone = 'America/New_York';
+            break;
+        case('PST'):
+        case('Pacific Time'):
+        case('Pacific Standard Time'):
+            $timezone = 'America/Los_Angeles';
+            break;
+        case('China Time'):
+        case('China Standard Time'):
+            $timezone = 'Asia/Beijing';
+            break;
+        case('IST'):
+        case('India Time'):
+        case('India Standard Time'):
+            $timezone = 'Asia/New_Delhi';
+            break;
+        case('JST');
+        case('Japan Time'):
+        case('Japan Standard Time'):
+            $timezone = 'Asia/Tokyo';
+            break;
+    }
+
+    return $timezone;
+}
+
 function getCalenderRepeat($value)
 {
 	//FREQ=DAILY
@@ -1494,10 +1595,10 @@ function getCalenderRepeatUntil($value)
 {
 	$first = explode('UNTIL=', $value);
 	if (count($first) > 1) {
-		if(strpos($first[1], ';') !== false){
+		if (strpos($first[1], ';') !== false) {
 			$check = explode(';', $first[1]);
 			return $check[0];
-		}else{
+		} else {
 			return $first[1];
 		}
 	} else {
@@ -1725,7 +1826,7 @@ function getRadarrCalendar($array, $number, $url)
 							$imageUrl = implode("/", $imageParts);
 						}
 						$banner = $url . $imageUrl . '?apikey=' . $GLOBALS['radarrToken'];
-					}else{
+					} else {
 						$banner = $image['url'];
 					}
 					
@@ -2294,6 +2395,11 @@ function ombiAction($id, $action, $type, $fullArray = null)
 
 function getOmbiRequests($type = "both", $limit = 50)
 {
+	$api['count'] = array(
+		'movie' => 0,
+		'tv' => 0,
+		'limit' => (integer)$limit
+	);
 	if ($GLOBALS['homepageOmbiEnabled'] && !empty($GLOBALS['ombiURL']) && !empty($GLOBALS['ombiToken']) && qualifyRequest($GLOBALS['homepageOmbiAuth'])) {
 		$url = qualifyURL($GLOBALS['ombiURL']);
 		$headers = array(
@@ -2322,12 +2428,12 @@ function getOmbiRequests($type = "both", $limit = 50)
 					foreach ($movie as $key => $value) {
 						$proceed = (($GLOBALS['ombiLimitUser']) && strtolower($GLOBALS['organizrUser']['username']) == strtolower($value['requestedUser']['userName'])) || (!$GLOBALS['ombiLimitUser']) || qualifyRequest(1) ? true : false;
 						if ($proceed) {
+							$api['count']['movie']++;
 							$requests[] = array(
-								'test' => $value,
 								'id' => $value['theMovieDbId'],
 								'title' => $value['title'],
 								'overview' => $value['overview'],
-								'poster' => (isset($value['posterPath']) && $value['posterPath'] !== '') ? 'https://image.tmdb.org/t/p/w300/' . $value['posterPath'] : '',
+								'poster' => (isset($value['posterPath']) && $value['posterPath'] !== '') ? 'https://image.tmdb.org/t/p/w300/' . $value['posterPath'] : 'plugins/images/cache/no-list.png',
 								'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
 								'approved' => $value['approved'],
 								'available' => $value['available'],
@@ -2351,12 +2457,12 @@ function getOmbiRequests($type = "both", $limit = 50)
 						if (count($value['childRequests']) > 0) {
 							$proceed = (($GLOBALS['ombiLimitUser']) && strtolower($GLOBALS['organizrUser']['username']) == strtolower($value['childRequests'][0]['requestedUser']['userName'])) || (!$GLOBALS['ombiLimitUser']) || qualifyRequest(1) ? true : false;
 							if ($proceed) {
+								$api['count']['tv']++;
 								$requests[] = array(
-									'test' => $value,
 									'id' => $value['tvDbId'],
 									'title' => $value['title'],
 									'overview' => $value['overview'],
-									'poster' => $value['posterPath'],
+									'poster' => (isset($value['posterPath']) && $value['posterPath'] !== '') ? $value['posterPath'] : 'plugins/images/cache/no-list.png',
 									'background' => (isset($value['background']) && $value['background'] !== '') ? 'https://image.tmdb.org/t/p/w1280/' . $value['background'] : '',
 									'approved' => $value['childRequests'][0]['approved'],
 									'available' => $value['childRequests'][0]['available'],
@@ -2409,7 +2515,7 @@ function unifiConnect()
 			if ($response->success) {
 				$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
 				$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
-			}else{
+			} else {
 				return false;
 			}
 			$headers = array(
@@ -2432,22 +2538,47 @@ function getTautulli()
 {
 	if ($GLOBALS['homepageTautulliEnabled'] && !empty($GLOBALS['tautulliURL']) && !empty($GLOBALS['tautulliApikey']) && qualifyRequest($GLOBALS['homepageTautulliAuth'])) {
 		$api = [];
-		$url = $GLOBALS['tautulliURL'] . '/api/v2?apikey=' . $GLOBALS['tautulliApikey'];
+		$url = qualifyURL($GLOBALS['tautulliURL']);
+		$apiURL = $url . '/api/v2?apikey=' . $GLOBALS['tautulliApikey'];
+		$height = getCacheImageSize('h');
+		$width = getCacheImageSize('w');
+		$nowPlayingHeight = getCacheImageSize('nph');
+		$nowPlayingWidth = getCacheImageSize('npw');
 		try {
-			$homestatsUrl = $url . '&cmd=get_home_stats';
+			$homestatsUrl = $apiURL . '&cmd=get_home_stats&grouping=1';
 			$homestats = Requests::get($homestatsUrl, [], []);
 			if ($homestats->success) {
 				$homestats = json_decode($homestats->body, true);
 				$api['homestats'] = $homestats['response'];
+				// Cache art & thumb for first result in each tautulli API result
+				$categories = ['top_movies', 'top_tv', 'popular_movies', 'popular_tv'];
+				foreach ($categories as $cat) {
+					$key = array_search($cat, array_column($api['homestats']['data'], 'stat_id'));
+					$img = $api['homestats']['data'][$key]['rows'][0];
+					cacheImage($url . '/pms_image_proxy?img=' . $img['art'] . '&rating_key=' . $img['rating_key'] . '&width=' . $nowPlayingWidth . '&height=' . $nowPlayingHeight, $img['rating_key'] . '-np');
+					cacheImage($url . '/pms_image_proxy?img=' . $img['thumb'] . '&rating_key=' . $img['rating_key'] . '&width=' . $width . '&height=' . $height, $img['rating_key'] . '-list');
+					$img['art'] = 'plugins/images/cache/' . $img['rating_key'] . '-np.jpg';
+					$img['thumb'] = 'plugins/images/cache/' . $img['rating_key'] . '-list.jpg';
+					$api['homestats']['data'][$key]['rows'][0] = $img;
+				}
+				// Cache the platform icon
+				$key = array_search('top_platforms', array_column($api['homestats']['data'], 'stat_id'));
+				$platform = $api['homestats']['data'][$key]['rows'][0]['platform_name'];
+				cacheImage($url . '/images/platforms/' . $platform . '.svg', 'tautulli-' . $platform, 'svg');
 			}
-			$libstatsUrl = $url . '&cmd=get_libraries';
+			$libstatsUrl = $apiURL . '&cmd=get_libraries';
 			$libstats = Requests::get($libstatsUrl, [], []);
 			if ($libstats->success) {
 				$libstats = json_decode($libstats->body, true);
 				$api['libstats'] = $libstats['response'];
+				$categories = ['movie.svg', 'show.svg', 'artist.svg'];
+				foreach ($categories as $cat) {
+					$parts = explode('.', $cat);
+					cacheImage($url . '/images/libraries/' . $cat, 'tautulli-' . $parts[0], $parts[1]);
+				}
 			}
 			$api['options'] = [
-				'url' => $GLOBALS['tautulliURL'],
+				'url' => $url,
 				'libraries' => $GLOBALS['tautulliLibraries'],
 				'topMovies' => $GLOBALS['tautulliTopMovies'],
 				'topTV' => $GLOBALS['tautulliTopTV'],
@@ -2455,32 +2586,33 @@ function getTautulli()
 				'topPlatforms' => $GLOBALS['tautulliTopPlatforms'],
 				'popularMovies' => $GLOBALS['tautulliPopularMovies'],
 				'popularTV' => $GLOBALS['tautulliPopularTV'],
+				'title' => $GLOBALS['tautulliHeaderToggle'],
 			];
-
 			$ids = []; // Array of stat_ids to remove from the returned array
-			if(!qualifyRequest($GLOBALS['homepageTautulliLibraryAuth'])) {
+			if (!qualifyRequest($GLOBALS['homepageTautulliLibraryAuth'])) {
 				$api['options']['libraries'] = false;
 				unset($api['libstats']);
 			}
-			if(!qualifyRequest($GLOBALS['homepageTautulliViewsAuth'])) {
+			if (!qualifyRequest($GLOBALS['homepageTautulliViewsAuth'])) {
 				$api['options']['topMovies'] = false;
 				$api['options']['topTV'] = false;
 				$api['options']['popularMovies'] = false;
 				$api['options']['popularTV'] = false;
-				$ids = array_merge([ 'top_movies', 'popular_movies', 'popular_tv', 'top_tv' ], $ids);
+				$ids = array_merge(['top_movies', 'popular_movies', 'popular_tv', 'top_tv'], $ids);
 				$api['homestats']['data'] = array_values($api['homestats']['data']);
 			}
-			if(!qualifyRequest($GLOBALS['homepageTautulliMiscAuth'])) {
+			if (!qualifyRequest($GLOBALS['homepageTautulliMiscAuth'])) {
 				$api['options']['topUsers'] = false;
 				$api['options']['topPlatforms'] = false;
-				$ids = array_merge([ 'top_platforms', 'top_users' ], $ids);
+				$ids = array_merge(['top_platforms', 'top_users'], $ids);
 				$api['homestats']['data'] = array_values($api['homestats']['data']);
 			}
-			$ids = array_merge([ 'top_music', 'popular_music', 'last_watched', 'most_concurrent' ], $ids);
-			foreach($ids as $id) {
-				$key = array_search($id, array_column($api['homestats']['data'], 'stat_id'));
-				unset($api['homestats']['data'][$key]);
-				$api['homestats']['data'] = array_values($api['homestats']['data']);
+			$ids = array_merge(['top_music', 'popular_music', 'last_watched', 'most_concurrent'], $ids);
+			foreach ($ids as $id) {
+				if ($key = array_search($id, array_column($api['homestats']['data'], 'stat_id'))) {
+					unset($api['homestats']['data'][$key]);
+					$api['homestats']['data'] = array_values($api['homestats']['data']);
+				}
 			}
 		} catch (Requests_Exception $e) {
 			writeLog('error', 'Tautulli Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
@@ -2491,11 +2623,218 @@ function getTautulli()
 	return false;
 }
 
+function getMonitorr()
+{
+	if ($GLOBALS['homepageMonitorrEnabled'] && !empty($GLOBALS['monitorrURL']) && qualifyRequest($GLOBALS['homepageMonitorrAuth'])) {
+		$api = [];
+		$url = qualifyURL($GLOBALS['monitorrURL']);
+		$dataUrl = $url . '/assets/php/loop.php';
+		try {
+			$response = Requests::get($dataUrl, ['Token' => $GLOBALS['organizrAPI']], []);
+			if ($response->success) {
+				$html = html_entity_decode($response->body);
+				// This section grabs the names of all services by regex
+				$services = [];
+				$servicesMatch = [];
+				$servicePattern = '/<div id="servicetitle"><div>(.*)<\/div><\/div><div class="btnonline">Online<\/div><\/a><\/div><\/div>|<div id="servicetitleoffline".*><div>(.*)<\/div><\/div><div class="btnoffline".*>Offline<\/div><\/div><\/div>|<div id="servicetitlenolink".*><div>(.*)<\/div><\/div><div class="btnonline".*>Online<\/div><\/div><\/div>/';
+				preg_match_all($servicePattern, $html, $servicesMatch);
+				unset($servicesMatch[0]);
+				$servicesMatch = array_values($servicesMatch);
+				foreach ($servicesMatch as $group) {
+					foreach ($group as $service) {
+						if ($service !== '') {
+							array_push($services, $service);
+						}
+					}
+				}
+				// This section then grabs the status and image of that service with regex
+				$statuses = [];
+				foreach ($services as $service) {
+					$statusPattern = '/' . $service . '<\/div><\/div><div class="btnonline">(Online)<\/div>|' . $service . '<\/div><\/div><div class="btnoffline".*>(Offline)<\/div><\/div><\/div>/';
+					$status = [];
+					preg_match($statusPattern, $html, $status);
+					$statuses[$service] = $status;
+					foreach ($status as $match) {
+						if ($match == 'Online') {
+							$statuses[$service] = [
+								'status' => true
+							];
+						} else if ($match == 'Offline') {
+							$statuses[$service] = [
+								'status' => false
+							];
+						}
+					}
+					$imageMatch = [];
+					$imgPattern = '/assets\/img\/\.\.(.*)" class="serviceimg" alt=.*><\/div><\/div><div id="servicetitle"><div>' . $service . '|assets\/img\/\.\.(.*)" class="serviceimg imgoffline" alt=.*><\/div><\/div><div id="servicetitleoffline".*><div>' . $service . '|assets\/img\/\.\.(.*)" class="serviceimg" alt=.*><\/div><\/div><div id="servicetitlenolink".*><div>' . $service . '/';
+					preg_match($imgPattern, $html, $imageMatch);
+					unset($imageMatch[0]);
+					$imageMatch = array_values($imageMatch);
+					// array_push($api['imagematches'][$service], $imageMatch);
+					foreach ($imageMatch as $match) {
+						if ($match !== '') {
+							$image = $match;
+						}
+					}
+					$ext = explode('.', $image);
+					$ext = $ext[key(array_slice($ext, -1, 1, true))];
+					$imageUrl = $url . '/assets' . $image;
+					$cacheDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR;
+					$img = Requests::get($imageUrl, ['Token' => $GLOBALS['organizrAPI']], []);
+					if ($img->success) {
+						$base64 = 'data:image/' . $ext . ';base64,' . base64_encode($img->body);
+						$statuses[$service]['image'] = $base64;
+					} else {
+						$statuses[$service]['image'] = $cacheDirectory . 'no-list.png';
+					}
+					$linkMatch = [];
+					$linkPattern = '/<a class="servicetile" href="(.*)" target="_blank" style="display: block"><div id="serviceimg"><div><img id="' . strtolower($service) . '-service-img/';
+					preg_match($linkPattern, $html, $linkMatch);
+					$linkMatch = array_values($linkMatch);
+					unset($linkMatch[0]);
+					foreach ($linkMatch as $link) {
+						if ($link !== '') {
+							$statuses[$service]['link'] = $link;
+						}
+					}
+				}
+				ksort($statuses);
+				$api['services'] = $statuses;
+				$api['options'] = [
+					'title' => $GLOBALS['monitorrHeader'],
+					'titleToggle' => $GLOBALS['monitorrHeaderToggle'],
+					'compact' => $GLOBALS['monitorrCompact'],
+				];
+			}
+		} catch (Requests_Exception $e) {
+			writeLog('error', 'Monitorr Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api = isset($api) ? $api : false;
+		return $api;
+	}
+}
+
+function getSpeedtest()
+{
+	if ($GLOBALS['homepageSpeedtestEnabled'] && !empty($GLOBALS['speedtestURL']) && qualifyRequest($GLOBALS['homepageSpeedtestAuth'])) {
+		$api = [];
+		$url = qualifyURL($GLOBALS['speedtestURL']);
+		$dataUrl = $url . '/api/speedtest/latest';
+		try {
+			$response = Requests::get($dataUrl);
+			if ($response->success) {
+				$json = json_decode($response->body, true);
+
+				$api['data'] = [
+					'current' => $json['data'],
+					'average' => $json['average'],
+					'max' => $json['max'],
+				];
+
+				$api['options'] = [
+					'title' => $GLOBALS['speedtestHeader'],
+					'titleToggle' => $GLOBALS['speedtestHeaderToggle'],
+				];
+			}
+		} catch (Requests_Exception $e) {
+			writeLog('error', 'Speedtest Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
+		};
+		$api = isset($api) ? $api : false;
+		return $api;
+	}
+}
+
+function getNetdata()
+{
+	if ($GLOBALS['homepageNetdataEnabled'] && !empty($GLOBALS['netdataURL']) && qualifyRequest($GLOBALS['homepageNetdataAuth'])) {
+		require_once('netdata-functions.php');
+		$api = [];
+		$api['data'] = [];
+		$api['url'] = $GLOBALS['netdataURL'];
+
+		$url = qualifyURL($GLOBALS['netdataURL']);
+
+		for($i = 1; $i < 8; $i++) {
+			if($GLOBALS['netdata'.($i).'Enabled']) {
+				switch($GLOBALS['netdata'.$i.'Data']) {
+					case 'disk-read':
+						$data = disk('in', $url);
+						break;
+					case 'disk-write':
+						$data = disk('out', $url);
+						$data['value'] = abs($data['value']);
+						$data['percent'] = abs($data['percent']);
+						break;
+					case 'cpu':
+						$data = cpu($url);
+						break;
+					case 'net-in':
+						$data = net('received', $url);
+						break;
+					case 'net-out':
+						$data = net('sent', $url);
+						$data['value'] = abs($data['value']);
+						$data['percent'] = abs($data['percent']);
+						break;
+					case 'ram-used':
+						$data = ram($url);
+						break;
+					case 'swap-used':
+						$data = swap($url);
+						break;
+					case 'disk-avail':
+						$data = diskSpace('avail', $url);
+						break;
+					case 'disk-used':
+						$data = diskSpace('used', $url);
+						break;
+					case 'ipmi-temp-c':
+						$data = ipmiTemp($url, 'c');
+						break;
+					case 'ipmi-temp-f':
+						$data = ipmiTemp($url, 'f');
+						break;
+					case 'cpu-temp-c':
+						$data = cpuTemp($url, 'c');
+						break;
+					case 'cpu-temp-f':
+						$data = cpuTemp($url, 'f');
+						break;
+					case 'custom':
+						$data = customNetdata($url, $i);
+						break;
+					default:
+						$data = [
+							'title' => 'DNC',
+							'value' => 0,
+							'units' => 'N/A',
+							'max' => 100,
+						];
+						break;
+				}
+
+				$data['title'] = $GLOBALS['netdata'.$i.'Title'];
+				$data['colour'] = $GLOBALS['netdata'.$i.'Colour'];
+				$data['chart'] = $GLOBALS['netdata'.$i.'Chart'];
+				$data['size'] = $GLOBALS['netdata'.$i.'Size'];
+				$data['lg'] = $GLOBALS['netdata'.($i).'lg'];
+				$data['md'] = $GLOBALS['netdata'.($i).'md'];
+				$data['sm'] = $GLOBALS['netdata'.($i).'sm'];
+
+				array_push($api['data'], $data);
+			}
+		}
+
+		$api = isset($api) ? $api : false;
+		return $api;
+	}
+}
+
 function testAPIConnection($array)
 {
 	switch ($array['data']['action']) {
 		case 'unifiSite':
-			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword'])) {
+			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername']) && !empty($GLOBALS['unifiPassword'])) {
 				$url = qualifyURL($GLOBALS['unifiURL']);
 				try {
 					$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
@@ -2509,7 +2848,7 @@ function testAPIConnection($array)
 					if ($response->success) {
 						$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
 						$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
-					}else{
+					} else {
 						return false;
 					}
 					$headers = array(
@@ -2519,7 +2858,7 @@ function testAPIConnection($array)
 					if ($response->success) {
 						$body = json_decode($response->body, true);
 						return $body;
-					}else{
+					} else {
 						return false;
 					}
 				} catch (Requests_Exception $e) {
@@ -2528,7 +2867,7 @@ function testAPIConnection($array)
 			}
 			break;
 		case 'unifi':
-			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername'])  && !empty($GLOBALS['unifiPassword']) && !empty($GLOBALS['unifiSiteName'])) {
+			if (!empty($GLOBALS['unifiURL']) && !empty($GLOBALS['unifiUsername']) && !empty($GLOBALS['unifiPassword']) && !empty($GLOBALS['unifiSiteName'])) {
 				$url = qualifyURL($GLOBALS['unifiURL']);
 				try {
 					$options = array('verify' => false, 'verifyname' => false, 'follow_redirects' => false);
@@ -2542,19 +2881,19 @@ function testAPIConnection($array)
 					if ($response->success) {
 						$cookie['unifises'] = ($response->cookies['unifises']->value) ?? false;
 						$cookie['csrf_token'] = ($response->cookies['csrf_token']->value) ?? false;
-					}else{
+					} else {
 						return 'Failed to Login';
 					}
 					$headers = array(
 						'cookie' => 'unifises=' . $cookie['unifises'] . ';' . 'csrf_token=' . $cookie['csrf_token'] . ';'
 					);
-					$response = Requests::get($url . '/api/s/'.$GLOBALS['unifiSiteName'].'/self', $headers, $options);
+					$response = Requests::get($url . '/api/s/' . $GLOBALS['unifiSiteName'] . '/self', $headers, $options);
 					$body = json_decode($response->body, true);
 					return ($body['meta']['rc'] == 'ok') ? true : $body['meta']['msg'];
 				} catch (Requests_Exception $e) {
 					writeLog('error', 'Unifi Connect Function - Error: ' . $e->getMessage(), 'SYSTEM');
 				};
-			}else{
+			} else {
 				return 'Not all data is filled in...';
 			}
 			break;
@@ -2680,22 +3019,22 @@ function testAPIConnection($array)
 				return 'URL/s and/or Token/s not setup';
 			}
 			break;
-        case 'jdownloader':
-            if (!empty($GLOBALS['jdownloaderURL'])) {
-                $url = qualifyURL($GLOBALS['jdownloaderURL']);
-                try {
-	                $options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
-                    $response = Requests::get($url, array(), $options);
-                    if ($response->success) {
-                        return true;
-                    }
-                } catch (Requests_Exception $e) {
-                    return $e->getMessage();
-                };
-            } else {
-                return 'URL and/or Token not setup';
-            }
-            break;
+		case 'jdownloader':
+			if (!empty($GLOBALS['jdownloaderURL'])) {
+				$url = qualifyURL($GLOBALS['jdownloaderURL']);
+				try {
+					$options = (localURL($url)) ? array('verify' => false, 'timeout' => 30) : array('timeout' => 30);
+					$response = Requests::get($url, array(), $options);
+					if ($response->success) {
+						return true;
+					}
+				} catch (Requests_Exception $e) {
+					return $e->getMessage();
+				};
+			} else {
+				return 'URL and/or Token not setup';
+			}
+			break;
 		case 'sabnzbd':
 			if (!empty($GLOBALS['sabnzbdURL']) && !empty($GLOBALS['sabnzbdToken'])) {
 				$url = qualifyURL($GLOBALS['sabnzbdURL']);
@@ -2719,7 +3058,7 @@ function testAPIConnection($array)
 				$url = $url . '/jsonrpc/listgroups';
 				try {
 					$options = (localURL($url)) ? array('verify' => false) : array();
-					if($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== ''){
+					if ($GLOBALS['nzbgetUsername'] !== '' && decrypt($GLOBALS['nzbgetPassword']) !== '') {
 						$credentials = array('auth' => new Requests_Auth_Basic(array($GLOBALS['nzbgetUsername'], decrypt($GLOBALS['nzbgetPassword']))));
 						$options = array_merge($options, $credentials);
 					}
@@ -2756,7 +3095,7 @@ function testAPIConnection($array)
 					$extraPath = (empty($GLOBALS['rTorrentURLOverride'])) ? $extraPath : '';
 					$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . $extraPath;
 					$options = (localURL($url, $GLOBALS['rTorrentDisableCertCheck'])) ? array('verify' => false) : array();
-					if($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== ''){
+					if ($GLOBALS['rTorrentUsername'] !== '' && decrypt($GLOBALS['rTorrentPassword']) !== '') {
 						$credentials = array('auth' => new Requests_Auth_Digest(array($GLOBALS['rTorrentUsername'], decrypt($GLOBALS['rTorrentPassword']))));
 						$options = array_merge($options, $credentials);
 					}

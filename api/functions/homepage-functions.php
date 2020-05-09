@@ -24,6 +24,10 @@ function homepageOrder()
 		"homepageOrderunifi" => $GLOBALS['homepageOrderunifi'],
 		"homepageOrdertautulli" => $GLOBALS['homepageOrdertautulli'],
 		"homepageOrderPihole" => $GLOBALS['homepageOrderPihole'],
+		"homepageOrderMonitorr" => $GLOBALS['homepageOrderMonitorr'],
+		"homepageOrderWeatherAndAir" => $GLOBALS['homepageOrderWeatherAndAir'],
+		"homepageOrderSpeedtest" => $GLOBALS['homepageOrderSpeedtest'],
+		"homepageOrderNetdata" => $GLOBALS['homepageOrderNetdata'],
 	);
 	asort($homepageOrder);
 	return $homepageOrder;
@@ -177,10 +181,10 @@ function buildHomepageItem($homepageItem)
 				}
 			}
 			break;
-        case 'homepageOrderjdownloader':
-            if ($GLOBALS['homepageJdownloaderEnabled'] && qualifyRequest($GLOBALS['homepageJdownloaderAuth'])) {
-                if ($GLOBALS['jdownloaderCombine']) {
-                    $item .= '
+		case 'homepageOrderjdownloader':
+			if ($GLOBALS['homepageJdownloaderEnabled'] && qualifyRequest($GLOBALS['homepageJdownloaderAuth'])) {
+				if ($GLOBALS['jdownloaderCombine']) {
+					$item .= '
 					<script>
 					// JDownloader
 					buildDownloaderCombined(\'jdownloader\');
@@ -188,9 +192,9 @@ function buildHomepageItem($homepageItem)
 					// End JDownloader
 					</script>
 					';
-                } else {
-                    $item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
-                    $item .= '
+				} else {
+					$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Download Queue...</h2></div>';
+					$item .= '
 					<script>
 					// JDownloader
 					$("#' . $homepageItem . '").html(buildDownloader("jdownloader"));
@@ -198,9 +202,9 @@ function buildHomepageItem($homepageItem)
 					// End JDownloader
 					</script>
 					';
-                }
-            }
-            break;
+				}
+			}
+			break;
 		case 'homepageOrdersabnzbd':
 			if ($GLOBALS['homepageSabnzbdEnabled'] && qualifyRequest($GLOBALS['homepageSabnzbdAuth'])) {
 				if ($GLOBALS['sabnzbdCombine']) {
@@ -356,6 +360,55 @@ function buildHomepageItem($homepageItem)
 				</script>
 				';
 			}
+			break;
+		case 'homepageOrderMonitorr':
+			if ($GLOBALS['homepageMonitorrEnabled']) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Monitorr...</h2></div>';
+				$item .= '
+				<script>
+				// Monitorr
+				homepageMonitorr("' . $GLOBALS['homepageMonitorrRefresh'] . '");
+				// End Monitorr
+				</script>
+				';
+			}
+			break;
+		case 'homepageOrderWeatherAndAir':
+			if ($GLOBALS['homepageWeatherAndAirEnabled']) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Weather And Air...</h2></div>';
+				$item .= '
+				<script>
+				// Weather And Air
+				homepageWeatherAndAir("' . $GLOBALS['homepageWeatherAndAirRefresh'] . '");
+				// End Weather And Air
+				</script>
+				';
+			}
+			break;
+		case 'homepageOrderSpeedtest':
+			if ($GLOBALS['homepageSpeedtestEnabled']) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Speedtest...</h2></div>';
+				$item .= '
+				<script>
+				// Speedtest
+				homepageSpeedtest("' . $GLOBALS['homepageSpeedtestRefresh'] . '");
+				// End Speedtest
+				</script>
+				';
+			}
+			break;
+		case 'homepageOrderNetdata':
+			if ($GLOBALS['homepageNetdataEnabled']) {
+				$item .= '<div class="white-box"><h2 class="text-center" lang="en">Loading Netdata...</h2></div>';
+				$item .= '
+				<script>
+				// Netdata
+				homepageNetdata("' . $GLOBALS['homepageNetdataRefresh'] . '");
+				// End Netdata
+				</script>
+				';
+			}
+			break;
 		default:
 			# code...
 			break;
@@ -625,87 +678,88 @@ function getHomepageList()
 		)
 	);
 	$xmlStatus = (extension_loaded('xmlrpc')) ? 'Installed' : 'Not Installed';
-	return array(array(
-		'name' => 'Calendar',
-		'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
-		'image' => 'plugins/images/tabs/calendar.png',
-		'category' => 'HOMEPAGE',
-		'settings' => array(
-			'Enable' => array(
-				array(
-					'type' => 'switch',
-					'name' => 'homepageCalendarEnabled',
-					'label' => 'Enable iCal',
-					'value' => $GLOBALS['homepageCalendarEnabled']
+	return array(
+		array(
+			'name' => 'Calendar',
+			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
+			'image' => 'plugins/images/tabs/calendar.png',
+			'category' => 'HOMEPAGE',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageCalendarEnabled',
+						'label' => 'Enable iCal',
+						'value' => $GLOBALS['homepageCalendarEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageCalendarAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageCalendarAuth'],
+						'options' => $groups
+					),
+					array(
+						'type' => 'input',
+						'name' => 'calendariCal',
+						'label' => 'iCal URL\'s',
+						'value' => $GLOBALS['calendariCal'],
+						'placeholder' => 'separate by comma\'s'
+					),
 				),
-				array(
-					'type' => 'select',
-					'name' => 'homepageCalendarAuth',
-					'label' => 'Minimum Authentication',
-					'value' => $GLOBALS['homepageCalendarAuth'],
-					'options' => $groups
+				'Misc Options' => array(
+					array(
+						'type' => 'number',
+						'name' => 'calendarStart',
+						'label' => '# of Days Before',
+						'value' => $GLOBALS['calendarStart'],
+						'placeholder' => ''
+					),
+					array(
+						'type' => 'number',
+						'name' => 'calendarEnd',
+						'label' => '# of Days After',
+						'value' => $GLOBALS['calendarEnd'],
+						'placeholder' => ''
+					),
+					array(
+						'type' => 'select',
+						'name' => 'calendarFirstDay',
+						'label' => 'Start Day',
+						'value' => $GLOBALS['calendarFirstDay'],
+						'options' => $day
+					),
+					array(
+						'type' => 'select',
+						'name' => 'calendarDefault',
+						'label' => 'Default View',
+						'value' => $GLOBALS['calendarDefault'],
+						'options' => $calendarDefault
+					),
+					array(
+						'type' => 'select',
+						'name' => 'calendarTimeFormat',
+						'label' => 'Time Format',
+						'value' => $GLOBALS['calendarTimeFormat'],
+						'options' => $timeFormat
+					),
+					array(
+						'type' => 'select',
+						'name' => 'calendarLimit',
+						'label' => 'Items Per Day',
+						'value' => $GLOBALS['calendarLimit'],
+						'options' => $limit
+					),
+					array(
+						'type' => 'select',
+						'name' => 'calendarRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['calendarRefresh'],
+						'options' => optionTime()
+					)
 				),
-				array(
-					'type' => 'input',
-					'name' => 'calendariCal',
-					'label' => 'iCal URL\'s',
-					'value' => $GLOBALS['calendariCal'],
-					'placeholder' => 'separate by comma\'s'
-				),
-			),
-			'Misc Options' => array(
-				array(
-					'type' => 'number',
-					'name' => 'calendarStart',
-					'label' => '# of Days Before',
-					'value' => $GLOBALS['calendarStart'],
-					'placeholder' => ''
-				),
-				array(
-					'type' => 'number',
-					'name' => 'calendarEnd',
-					'label' => '# of Days After',
-					'value' => $GLOBALS['calendarEnd'],
-					'placeholder' => ''
-				),
-				array(
-					'type' => 'select',
-					'name' => 'calendarFirstDay',
-					'label' => 'Start Day',
-					'value' => $GLOBALS['calendarFirstDay'],
-					'options' => $day
-				),
-				array(
-					'type' => 'select',
-					'name' => 'calendarDefault',
-					'label' => 'Default View',
-					'value' => $GLOBALS['calendarDefault'],
-					'options' => $calendarDefault
-				),
-				array(
-					'type' => 'select',
-					'name' => 'calendarTimeFormat',
-					'label' => 'Time Format',
-					'value' => $GLOBALS['calendarTimeFormat'],
-					'options' => $timeFormat
-				),
-				array(
-					'type' => 'select',
-					'name' => 'calendarLimit',
-					'label' => 'Items Per Day',
-					'value' => $GLOBALS['calendarLimit'],
-					'options' => $limit
-				),
-				array(
-					'type' => 'select',
-					'name' => 'calendarRefresh',
-					'label' => 'Refresh Seconds',
-					'value' => $GLOBALS['calendarRefresh'],
-					'options' => optionTime()
-				)
-			),
-		)
-	),
+			)
+		),
 		array(
 			'name' => 'Plex',
 			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
@@ -1048,13 +1102,13 @@ function getHomepageList()
 				)
 			)
 		),
-        array(
-            'name' => 'JDownloader',
-            'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
-            'image' => 'plugins/images/tabs/jdownloader.png',
-            'category' => 'Downloader',
-            'settings' => array(
-	            'custom' => '
+		array(
+			'name' => 'JDownloader',
+			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
+			'image' => 'plugins/images/tabs/jdownloader.png',
+			'category' => 'Downloader',
+			'settings' => array(
+				'custom' => '
 				<div class="row">
                     <div class="col-lg-12">
                         <div class="panel panel-info">
@@ -1073,62 +1127,62 @@ function getHomepageList()
                     </div>
 				</div>
 				',
-                'Enable' => array(
-                    array(
-                        'type' => 'switch',
-                        'name' => 'homepageJdownloaderEnabled',
-                        'label' => 'Enable',
-                        'value' => $GLOBALS['homepageJdownloaderEnabled']
-                    ),
-                    array(
-                        'type' => 'select',
-                        'name' => 'homepageJdownloaderAuth',
-                        'label' => 'Minimum Authentication',
-                        'value' => $GLOBALS['homepageJdownloaderAuth'],
-                        'options' => $groups
-                    )
-                ),
-                'Connection' => array(
-                    array(
-                        'type' => 'input',
-                        'name' => 'jdownloaderURL',
-                        'label' => 'URL',
-                        'value' => $GLOBALS['jdownloaderURL'],
-                        'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
-                        'placeholder' => 'http(s)://hostname:port'
-                    )
-                ),
-                'Misc Options' => array(
-                    array(
-                        'type' => 'select',
-                        'name' => 'homepageDownloadRefresh',
-                        'label' => 'Refresh Seconds',
-                        'value' => $GLOBALS['homepageDownloadRefresh'],
-                        'options' => optionTime()
-                    ),
-                    array(
-                        'type' => 'switch',
-                        'name' => 'jdownloaderCombine',
-                        'label' => 'Add to Combined Downloader',
-                        'value' => $GLOBALS['jdownloaderCombine']
-                    ),
-                ),
-                'Test Connection' => array(
-                    array(
-                        'type' => 'blank',
-                        'label' => 'Please Save before Testing'
-                    ),
-                    array(
-                        'type' => 'button',
-                        'label' => '',
-                        'icon' => 'fa fa-flask',
-                        'class' => 'pull-right',
-                        'text' => 'Test Connection',
-                        'attr' => 'onclick="testAPIConnection(\'jdownloader\')"'
-                    ),
-                )
-            )
-        ),
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageJdownloaderEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageJdownloaderEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageJdownloaderAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageJdownloaderAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'jdownloaderURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['jdownloaderURL'],
+						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
+						'placeholder' => 'http(s)://hostname:port'
+					)
+				),
+				'Misc Options' => array(
+					array(
+						'type' => 'select',
+						'name' => 'homepageDownloadRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageDownloadRefresh'],
+						'options' => optionTime()
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'jdownloaderCombine',
+						'label' => 'Add to Combined Downloader',
+						'value' => $GLOBALS['jdownloaderCombine']
+					),
+				),
+				'Test Connection' => array(
+					array(
+						'type' => 'blank',
+						'label' => 'Please Save before Testing'
+					),
+					array(
+						'type' => 'button',
+						'label' => '',
+						'icon' => 'fa fa-flask',
+						'class' => 'pull-right',
+						'text' => 'Test Connection',
+						'attr' => 'onclick="testAPIConnection(\'jdownloader\')"'
+					),
+				)
+			)
+		),
 		array(
 			'name' => 'SabNZBD',
 			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
@@ -2514,8 +2568,8 @@ function getHomepageList()
 				)
 			)
 		),
-    array(
-      'name' => 'Pi-hole',
+		array(
+			'name' => 'Pi-hole',
 			'enabled' => true,
 			'image' => 'plugins/images/tabs/pihole.png',
 			'category' => 'Monitor',
@@ -2548,6 +2602,13 @@ function getHomepageList()
 				'Misc' => array(
 					array(
 						'type' => 'switch',
+						'name' => 'piholeHeaderToggle',
+						'label' => 'Toggle Title',
+						'value' => $GLOBALS['piholeHeaderToggle'],
+						'help' => 'Shows/hides the title of this homepage module'
+					),
+					array(
+						'type' => 'switch',
 						'name' => 'homepagePiholeCombine',
 						'label' => 'Combine stat cards',
 						'value' => $GLOBALS['homepagePiholeCombine'],
@@ -2555,10 +2616,10 @@ function getHomepageList()
 					),
 				),
 			)
-    ),
+		),
 		array(
 			'name' => 'Tautulli',
-			'enabled' => true,
+			'enabled' => (strpos('personal', $GLOBALS['license']) !== false) ? true : false,
 			'image' => 'plugins/images/tabs/tautulli.png',
 			'category' => 'Monitor',
 			'settings' => array(
@@ -2577,6 +2638,22 @@ function getHomepageList()
 						'options' => $groups
 					)
 				),
+				'Options' => array(
+					array(
+						'type' => 'input',
+						'name' => 'tautulliHeader',
+						'label' => 'Title',
+						'value' => $GLOBALS['tautulliHeader'],
+						'help' => 'Sets the title of this homepage module'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliHeaderToggle',
+						'label' => 'Toggle Title',
+						'value' => $GLOBALS['tautulliHeaderToggle'],
+						'help' => 'Shows/hides the title of this homepage module'
+					)
+				),
 				'Connection' => array(
 					array(
 						'type' => 'input',
@@ -2591,7 +2668,14 @@ function getHomepageList()
 						'name' => 'tautulliApikey',
 						'label' => 'API Key',
 						'value' => $GLOBALS['tautulliApikey']
-					)
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageTautulliRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageTautulliRefresh'],
+						'options' => optionTime()
+					),
 				),
 				'Library Stats' => array(
 					array(
@@ -2647,7 +2731,6 @@ function getHomepageList()
 					),
 				),
 				'Misc Stats' => array(
-					
 					array(
 						'type' => 'switch',
 						'name' => 'tautulliTopUsers',
@@ -2672,6 +2755,235 @@ function getHomepageList()
 				),
 			)
 		),
+		array(
+			'name' => 'Monitorr',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/monitorr.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageMonitorrEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageMonitorrEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageMonitorrAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageMonitorrAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'monitorrURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['monitorrURL'],
+						'help' => 'URL for Monitorr. Please use the revers proxy URL i.e. https://domain.com/monitorr/.',
+						'placeholder' => 'http://domain.com/monitorr/'
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageMonitorrRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageMonitorrRefresh'],
+						'options' => optionTime()
+					),
+				),
+				'Options' => array(
+					array(
+						'type' => 'input',
+						'name' => 'monitorrHeader',
+						'label' => 'Title',
+						'value' => $GLOBALS['monitorrHeader'],
+						'help' => 'Sets the title of this homepage module',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'monitorrHeaderToggle',
+						'label' => 'Toggle Title',
+						'value' => $GLOBALS['monitorrHeaderToggle'],
+						'help' => 'Shows/hides the title of this homepage module'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'monitorrCompact',
+						'label' => 'Compact view',
+						'value' => $GLOBALS['monitorrCompact'],
+						'help' => 'Toggles the compact view of this homepage module'
+					),
+				),
+			)
+		),
+		array(
+			'name' => 'Weather-Air',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/wind.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'switch',
+						'name' => 'homepageWeatherAndAirEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageWeatherAndAirEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageWeatherAndAirAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageWeatherAndAirAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'homepageWeatherAndAirLatitude',
+						'label' => 'Latitude',
+						'value' => $GLOBALS['homepageWeatherAndAirLatitude'],
+						'help' => 'Please enter full latitude including minus if needed'
+					),
+					array(
+						'type' => 'input',
+						'name' => 'homepageWeatherAndAirLongitude',
+						'label' => 'Longitude',
+						'value' => $GLOBALS['homepageWeatherAndAirLongitude'],
+						'help' => 'Please enter full longitude including minus if needed'
+					),
+					array(
+						'type' => 'blank',
+						'label' => ''
+					),
+					array(
+						'type' => 'button',
+						'label' => '',
+						'icon' => 'fa fa-search',
+						'class' => 'pull-right',
+						'text' => 'Need Help With Coordinates?',
+						'attr' => 'onclick="showLookupCoordinatesModal()"'
+					),
+				),
+				'Options' => array(
+					array(
+						'type' => 'input',
+						'name' => 'homepageWeatherAndAirWeatherHeader',
+						'label' => 'Title',
+						'value' => $GLOBALS['homepageWeatherAndAirWeatherHeader'],
+						'help' => 'Sets the title of this homepage module',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'homepageWeatherAndAirWeatherHeaderToggle',
+						'label' => 'Toggle Title',
+						'value' => $GLOBALS['homepageWeatherAndAirWeatherHeaderToggle'],
+						'help' => 'Shows/hides the title of this homepage module'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'homepageWeatherAndAirWeatherEnabled',
+						'label' => 'Enable Weather',
+						'value' => $GLOBALS['homepageWeatherAndAirWeatherEnabled'],
+						'help' => 'Toggles the view module for Weather'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'homepageWeatherAndAirAirQualityEnabled',
+						'label' => 'Enable Air Quality',
+						'value' => $GLOBALS['homepageWeatherAndAirAirQualityEnabled'],
+						'help' => 'Toggles the view module for Air Quality'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'homepageWeatherAndAirPollenEnabled',
+						'label' => 'Enable Pollen',
+						'value' => $GLOBALS['homepageWeatherAndAirPollenEnabled'],
+						'help' => 'Toggles the view module for Pollen'
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageWeatherAndAirUnits',
+						'label' => 'Unit of Measurement',
+						'value' => $GLOBALS['homepageWeatherAndAirUnits'],
+						'options' => array(
+							array(
+								'name' => 'Imperial',
+								'value' => 'imperial'
+							),
+							array(
+								'name' => 'Metric',
+								'value' => 'metric'
+							)
+						)
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageWeatherAndAirRefresh',
+						'label' => 'Refresh Seconds',
+						'value' => $GLOBALS['homepageWeatherAndAirRefresh'],
+						'options' => optionTime()
+					),
+				),
+			)
+		),
+		array(
+			'name' => 'Speedtest',
+			'enabled' => true,
+			'image' => 'plugins/images/tabs/speedtest-icon.png',
+			'category' => 'Monitor',
+			'settings' => array(
+				'Enable' => array(
+					array(
+						'type' => 'html',
+						'override' => 6,
+						'label' => 'Info',
+						'html' => '<p>This homepage item requires <a href="https://github.com/henrywhitaker3/Speedtest-Tracker" target="_blank" rel="noreferrer noopener">Speedtest-Tracker <i class="fa fa-external-link" aria-hidden="true"></i></a> to be running on your network.</p>'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'homepageSpeedtestEnabled',
+						'label' => 'Enable',
+						'value' => $GLOBALS['homepageSpeedtestEnabled']
+					),
+					array(
+						'type' => 'select',
+						'name' => 'homepageSpeedtestAuth',
+						'label' => 'Minimum Authentication',
+						'value' => $GLOBALS['homepageSpeedtestAuth'],
+						'options' => $groups
+					)
+				),
+				'Connection' => array(
+					array(
+						'type' => 'input',
+						'name' => 'speedtestURL',
+						'label' => 'URL',
+						'value' => $GLOBALS['speedtestURL'],
+						'help' => 'Enter the IP:PORT of your speedtest instance e.g. http(s)://<ip>:<port>'
+					),
+				),
+				'Options' => array(
+					array(
+						'type' => 'input',
+						'name' => 'speedtestHeader',
+						'label' => 'Title',
+						'value' => $GLOBALS['speedtestHeader'],
+						'help' => 'Sets the title of this homepage module',
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'speedtestHeaderToggle',
+						'label' => 'Toggle Title',
+						'value' => $GLOBALS['speedtestHeaderToggle'],
+						'help' => 'Shows/hides the title of this homepage module'
+					),
+				),
+			)
+		),
+		netdataSettngsArray()
 	);
 }
 
@@ -2710,13 +3022,13 @@ function buildHomepageSettings()
 					$class .= ' faded';
 				}
 				break;
-            case 'homepageOrderjdownloader':
-                $class = 'bg-sab';
-                $image = 'plugins/images/tabs/jdownloader.png';
-                if (!$GLOBALS['homepageJdownloaderEnabled']) {
-                    $class .= ' faded';
-                }
-                break;
+			case 'homepageOrderjdownloader':
+				$class = 'bg-sab';
+				$image = 'plugins/images/tabs/jdownloader.png';
+				if (!$GLOBALS['homepageJdownloaderEnabled']) {
+					$class .= ' faded';
+				}
+				break;
 			case 'homepageOrdersabnzbd':
 				$class = 'bg-sab';
 				$image = 'plugins/images/tabs/sabnzbd.png';
@@ -2798,16 +3110,44 @@ function buildHomepageSettings()
 				}
 				break;
 			case 'homepageOrdertautulli':
-					$class = 'bg-info';
-					$image = 'plugins/images/tabs/tautulli.png';
-					if (!$GLOBALS['homepageTautulliEnabled']) {
-						$class .= ' faded';
-					}
-					break;
+				$class = 'bg-info';
+				$image = 'plugins/images/tabs/tautulli.png';
+				if (!$GLOBALS['homepageTautulliEnabled']) {
+					$class .= ' faded';
+				}
+				break;
 			case 'homepageOrderPihole':
 				$class = 'bg-info';
 				$image = 'plugins/images/tabs/pihole.png';
 				if (!$GLOBALS['homepagePiholeEnabled']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrderMonitorr':
+				$class = 'bg-info';
+				$image = 'plugins/images/tabs/monitorr.png';
+				if (!$GLOBALS['homepageMonitorrEnabled']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrderWeatherAndAir':
+				$class = 'bg-success';
+				$image = 'plugins/images/tabs/wind.png';
+				if (!$GLOBALS['homepageWeatherAndAirEnabled']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrderSpeedtest':
+				$class = 'bg-success';
+				$image = 'plugins/images/tabs/speedtest-icon.png';
+				if (!$GLOBALS['homepageSpeedtestEnabled']) {
+					$class .= ' faded';
+				}
+				break;
+			case 'homepageOrderNetdata':
+				$class = 'bg-success';
+				$image = 'plugins/images/tabs/netdata.png';
+				if (!$GLOBALS['homepageNetdataEnabled']) {
 					$class .= ' faded';
 				}
 				break;
